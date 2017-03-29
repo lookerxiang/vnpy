@@ -238,17 +238,15 @@ class BacktestingEngineEx(BacktestingEngine):
                 self.limitOrderDict[orderID] = order
 
                 # 从字典中删除该限价单
-                del self.workingStopOrderDict[stopOrderID]
-                # print trade.tradeTime, "stop", self.strategy.pos
-                # print  self.strategy.pos
+                if stopOrderID in self.workingStopOrderDict:
+                    del self.workingStopOrderDict[stopOrderID]
             else:  # 未成交用于未成交的的止损单的状态回调，便于在策略中撤掉未成交的单
                 order = VtOrderData()
                 order.vtOrderID = stopOrderID
                 order.orderTime = str(self.dt)
                 order.status = so.status
                 self.strategy.onOrder(order)  # 回调函数，传给策略交易状态
-                # print order.orderTime, "stop ", order.status, self.strategy.pos
-                # ----------------------------------------------------------------------
+
 
     def calculateBacktestingResult(self):
         """
