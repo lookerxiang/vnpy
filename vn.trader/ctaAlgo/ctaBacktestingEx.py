@@ -338,7 +338,7 @@ class BacktestingEngineEx(BacktestingEngine):
                         # 清算开平仓交易
                         closedVolume = min(exitTrade.volume, entryTrade.volume)
 
-                        result = TradingResult(entryTrade.direction, entryTrade.price, entryTrade.dt,
+                        result = TradingResult(entryTrade.price, entryTrade.dt,
                                                exitTrade.price, exitTrade.dt,
                                                closedVolume, self.rate, self.slippage, self.size)
                         resultList.append(result)
@@ -492,8 +492,8 @@ class BacktestingEngineEx(BacktestingEngine):
         self.output(u'平均每笔佣金：\t%s' % formatNumber(d['totalCommission'] / d['totalResult']))
 
         self.output(u'胜率\t\t%s%%' % formatNumber(d['winningRate']))
-        self.output(u'平均每笔盈利\t%s' % formatNumber(d['averageWinning']))
-        self.output(u'平均每笔亏损\t%s' % formatNumber(d['averageLosing']))
+        self.output(u'盈利交易平均值\t%s' % formatNumber(d['averageWinning']))
+        self.output(u'亏损交易平均值\t%s' % formatNumber(d['averageLosing']))
         self.output(u'盈亏比：\t%s' % formatNumber(d['profitLossRatio']))
 
         # 绘图
