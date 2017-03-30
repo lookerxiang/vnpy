@@ -14,7 +14,7 @@ import pandas as pd
 class BacktestingEngineEx(BacktestingEngine):
     # ----------------------------------------------------------------------
     def __int__(self):
-        super(CtaTemplate, self).__init__(self)
+        super(BacktestingEngineEx, self).__init__()
 
         self.period = [5, 12]  # k线周期，默认为5和12
         self.backtestingData = []   # 回测用的数据
@@ -27,12 +27,12 @@ class BacktestingEngineEx(BacktestingEngine):
         self.dataStartDate = datetime.strptime(startDate, '%Y%m%d')  # 数据开始时间
         initTimeDelta = timedelta(initDays)
         self.strategyStartDate = self.dataStartDate + initTimeDelta  # 策略开始时间，即前面的数据用于初始化
-        self.strategy.onInitDays(self.initDays)
+        #self.strategy.onInitDays(self.initDays)
 
     # ----------------------------------------------------------------------
     def loadHistoryData(self):
         """载入历史数据"""
-        host, port = loadMongoSetting()
+        host, port, logging = loadMongoSetting()
 
         self.dbClient = pymongo.MongoClient(host, port)
         collection = self.dbClient[self.dbName][self.symbol]
