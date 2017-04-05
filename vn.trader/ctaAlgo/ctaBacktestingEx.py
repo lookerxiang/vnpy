@@ -14,7 +14,7 @@ import pandas as pd
 class BacktestingEngineEx(BacktestingEngine):
     # ----------------------------------------------------------------------
     def __int__(self):
-        super(CtaTemplate, self).__init__(self)
+        super(BacktestingEngineEx, self).__init__()
 
         self.period = [5, 12]  # k线周期，默认为5和12
         self.backtestingData = []   # 回测用的数据
@@ -27,12 +27,12 @@ class BacktestingEngineEx(BacktestingEngine):
         self.dataStartDate = datetime.strptime(startDate, '%Y%m%d')  # 数据开始时间
         initTimeDelta = timedelta(initDays)
         self.strategyStartDate = self.dataStartDate + initTimeDelta  # 策略开始时间，即前面的数据用于初始化
-        self.strategy.onInitDays(self.initDays)
+        #self.strategy.onInitDays(self.initDays)
 
     # ----------------------------------------------------------------------
     def loadHistoryData(self):
         """载入历史数据"""
-        host, port = loadMongoSetting()
+        host, port, logging = loadMongoSetting()
 
         self.dbClient = pymongo.MongoClient(host, port)
         collection = self.dbClient[self.dbName][self.symbol]
@@ -238,17 +238,15 @@ class BacktestingEngineEx(BacktestingEngine):
                 self.limitOrderDict[orderID] = order
 
                 # 从字典中删除该限价单
-                del self.workingStopOrderDict[stopOrderID]
-                # print trade.tradeTime, "stop", self.strategy.pos
-                # print  self.strategy.pos
+                if stopOrderID in self.workingStopOrderDict:
+                    del self.workingStopOrderDict[stopOrderID]
             else:  # 未成交用于未成交的的止损单的状态回调，便于在策略中撤掉未成交的单
                 order = VtOrderData()
                 order.vtOrderID = stopOrderID
                 order.orderTime = str(self.dt)
                 order.status = so.status
                 self.strategy.onOrder(order)  # 回调函数，传给策略交易状态
-                # print order.orderTime, "stop ", order.status, self.strategy.pos
-                # ----------------------------------------------------------------------
+
 
     def calculateBacktestingResult(self):
         """
@@ -340,7 +338,7 @@ class BacktestingEngineEx(BacktestingEngine):
                         # 清算开平仓交易
                         closedVolume = min(exitTrade.volume, entryTrade.volume)
 
-                        result = TradingResult(entryTrade.direction, entryTrade.price, entryTrade.dt,
+                        result = TradingResult(entryTrade.price, entryTrade.dt,
                                                exitTrade.price, exitTrade.dt,
                                                closedVolume, self.rate, self.slippage, self.size)
                         resultList.append(result)
@@ -494,8 +492,8 @@ class BacktestingEngineEx(BacktestingEngine):
         self.output(u'平均每笔佣金：\t%s' % formatNumber(d['totalCommission'] / d['totalResult']))
 
         self.output(u'胜率\t\t%s%%' % formatNumber(d['winningRate']))
-        self.output(u'平均每笔盈利\t%s' % formatNumber(d['averageWinning']))
-        self.output(u'平均每笔亏损\t%s' % formatNumber(d['averageLosing']))
+        self.output(u'盈利交易平均值\t%s' % formatNumber(d['averageWinning']))
+        self.output(u'亏损交易平均值\t%s' % formatNumber(d['averageLosing']))
         self.output(u'盈亏比：\t%s' % formatNumber(d['profitLossRatio']))
 
         # 绘图
