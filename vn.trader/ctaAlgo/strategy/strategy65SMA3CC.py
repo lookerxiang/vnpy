@@ -13,6 +13,9 @@ import talib
 import numpy as np
 import dataRecorder.drEngineEx as dre
 import time
+import datetime as dt
+from ctaAlgo.ctaTemplateEx import CtaTemplate
+
 
 ########################################################################
 class StrategyDoubleSMA(CtaTemplate):
@@ -90,8 +93,7 @@ class StrategyDoubleSMA(CtaTemplate):
         # 策略时方便（更多是个编程习惯的选择）
 
         self.lastOrder = None
-        #self.shortEmaLength = 5  # EMA周期
-        self.initDays = 5  # 初始化数据所用的天数
+
 
     # ----------------------------------------------------------------------
     # def getStatusVar(self):
@@ -103,9 +105,11 @@ class StrategyDoubleSMA(CtaTemplate):
         """初始化策略（必须由用户继承实现）"""
         self.writeCtaLog(u'双EMA演示策略初始化')
 
-        initData = self.loadBar(self.initDays)
-        for bar in initData:
-            self.onBar(bar)
+        # 载入历史数据，并采用回放计算的方式初始化策略数值
+        startDatetime = self.backtestingStartDatetime if self.inBacktesting else dt.datetime.now()
+        initData = self.getLastKlines(max(self.period),period=dre.ctaKLine.PERIOD_1DAY, from_datetime=startDatetime)
+
+        print(initData)
 
         self.putEvent()
     #----------------------------------------------------------------------
@@ -113,12 +117,17 @@ class StrategyDoubleSMA(CtaTemplate):
         """启动策略（必须由用户继承实现）"""
         self.writeCtaLog(u'双EMA演示策略启动')
         self.putEvent()
+        # 注册K线回调
+        self.registerOnbar((dre.ctaKLine.PERIOD_1DAY,))
+
 
     #----------------------------------------------------------------------
     def onStop(self):
         """停止策略（必须由用户继承实现）"""
         self.writeCtaLog(u'双EMA演示策略停止')
         self.putEvent()
+        # 注销K线回调
+        self.unregisterOnbar((dre.ctaKLine.PERIOD_1DAY,))
 
     #----------------------------------------------------------------------
     def onTick(self, tick):
@@ -264,7 +273,7 @@ class StrategyDoubleSMA(CtaTemplate):
 
             # 发出本地止损委托，并且把委托号记录下来，用于后续撤单
             orderIDs = self.sell(longStop, 1, stop=True)
-            self.orderList.append(orderIDs)
+            self.orderList.extend(orderIDs)
 
 
         elif self.pos < 0:  # 买入平仓
@@ -277,7 +286,7 @@ class StrategyDoubleSMA(CtaTemplate):
             if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2]:
                 longStop = min(bar.close, longStop)
             orderIDs = self.cover(longStop, 1, stop=True)
-            self.orderList.append(orderIDs)
+            self.orderList.extend(orderIDs)
 
         # 发出状态更新事件
         self.putEvent()
@@ -321,15 +330,17 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     # d = {'atrLength': 11}
-    engine.initStrategy(StrategyDoubleSMA, {})  #初始化策略
-    engine.strategy.vtSymbol = 'rb1705'
+    #engine.initStrategy(StrategyDoubleSMA, {})  #初始化策略
+    engine.initStrategy(StrategyDoubleSMA, dict(
+        inBacktesting=True, backtestingStartDatetime=dt.datetime(2009, 3, 27) + dt.timedelta(20)))  # 初始化策略
+    engine.strategy.vtSymbol = 'RB0000'
     engine.strategy.isBacktesting = True
     # 设置引擎的回测模式为K线
 
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20090307', initDays=20)
+    engine.setStartDate('20090327', initDays=20)
     engine.setEndDate('20170222')
     # 设置产品相关参数
     engine.setSlippage(0.2)     # 股指1跳
