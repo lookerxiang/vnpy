@@ -6,6 +6,9 @@
 2. 策略初始化时从ctaEngine中自动获取pos
 3. 买平、卖平考虑上期所平今平昨问题
 4. 封装K线回调注册以及历史K线获取API，对应实盘和回测
+
+注意：
+onInit和onTrade有实现代码，重写时需手动调用！
 """
 
 import pymongo
@@ -24,8 +27,6 @@ class CtaTemplate(CtaTemplateOrginal):
 
     # 由回测引擎启动（此时将无法获取实时仓位等远端信息）
     inBacktesting = False
-    # 由回测引擎启动时的起始时间点
-    backtestingStartDatetime = None
 
     def __init__(self, ctaEngine, setting):
         """Constructor"""
@@ -34,8 +35,6 @@ class CtaTemplate(CtaTemplateOrginal):
         # 获取回测相关数据
         if 'inBacktesting' in setting:
             self.inBacktesting = setting['inBacktesting']
-        if 'backtestingStartDatetime' in setting:
-            self.backtestingStartDatetime = setting['backtestingStartDatetime']
 
     def onInit(self):
         """初始化策略"""
@@ -110,28 +109,36 @@ class CtaTemplate(CtaTemplateOrginal):
                                       trade.__dict__)
 
     def getLastKlines(self, count, period=drEngineEx.ctaKLine.PERIOD_1MIN, from_datetime=None,
-                      only_completed=True, newest_tick_datetime=None):
+                      symbol=None, only_completed=True, newest_tick_datetime=None):
         """获取最近的历史K线
 
         :param count: 获取K线的数量
         :param period: 获取K线的周期
         :param from_datetime: 获取K线的起始时间（向前检索），实盘会忽略该参数；onBar时使用，传K线的datetime
+        :param symbol: K线的合约，主要用于指定主力合约代码
         :param only_completed: 只获取已完成的K线，onTick时使用
         :param newest_tick_datetime: 用于精确判定已完成K线，onTick时使用，传tick的datetime
         :return:
         """
+        symbol = symbol if symbol else self.vtSymbol.upper()
+
         # 实盘使用K线生成器获取
         if not self.inBacktesting:
             return self.ctaEngine.mainEngine.drEngine.kline_gen.get_last_klines(
-                    self.vtSymbol, count, period, only_completed, newest_tick_datetime)
+                    symbol, count, period, only_completed, newest_tick_datetime)
 
         # 非实盘直接从数据库中获取
-        col = self.ctaEngine.dbClient[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][self.vtSymbol]
-        return list(col.find(filter={'datetime': {'$lte': from_datetime}},
-                             projection={'_id': False},
-                             limit=count,
-                             sort=(('date', pymongo.DESCENDING),
-                                   ('time', pymongo.DESCENDING))))
+        col = self.ctaEngine.dbClient[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
+        klines = list(col.find(filter={'datetime': {'$lte': from_datetime}},
+                               projection={'_id': False},
+                               limit=count,
+                               sort=(('date', pymongo.DESCENDING),
+                                     ('time', pymongo.DESCENDING))))
+        klines.reverse()
+        result = [drEngineEx.ctaKLine.KLine(None) for _ in range(len(klines))]
+        for idx in range(len(klines)):
+            result[idx].__dict__.update(klines[idx])
+        return result
 
     def registerOnbar(self, periods):
         """注册K线回调
