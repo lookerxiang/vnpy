@@ -21,12 +21,14 @@ class StrategyDoubleSMA(CtaTemplate):
 
     # 策略参数
     trailingPercent = 5.0  # 百分比移动止损，必须用浮点数
-    period = [5, 14]  # EMA周期
+    #period = [5, 14]  # EMA周期
+    shortPeriod = 5
+    longPeriod = 14
 
     # 策略变量
     bar = None  # K线对象
     barMinute = ''  # K线当前的分钟
-    bufferSize = max(period)  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
+    bufferSize = 100  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
     bufferCount = 0  # 目前已经缓存了的数据的计数
     initSize = 0
     initCount = 0  # 目前已经缓存了的数据的计数
@@ -62,7 +64,8 @@ class StrategyDoubleSMA(CtaTemplate):
                  'author',
                  'vtSymbol',
                  'trailingPercent',
-                 'period',
+                 'shortPeriod',
+                 'longPeriod'
                  ]
 
     # 变量列表，保存了变量的名称
@@ -93,7 +96,7 @@ class StrategyDoubleSMA(CtaTemplate):
 
         # 载入历史数据，并采用回放计算的方式初始化策略数值
         startDatetime = self.ctaEngine.strategyStartDate if self.inBacktesting else dt.datetime.now()
-        initData = self.getLastKlines(max(self.period), period=dre.ctaKLine.PERIOD_1DAY, from_datetime=startDatetime)
+        initData = self.getLastKlines(self.longPeriod, period=dre.ctaKLine.PERIOD_1DAY, from_datetime=startDatetime)
 
         for bar in initData:
             self.updateData(bar)
@@ -120,7 +123,7 @@ class StrategyDoubleSMA(CtaTemplate):
 
     def updateData(self, bar):
         # 获取历史K线
-        lastKLines = self.getLastKlines(max(self.period), dre.ctaKLine.PERIOD_1DAY, from_datetime=bar.datetime)
+        lastKLines = self.getLastKlines(self.longPeriod, dre.ctaKLine.PERIOD_1DAY, from_datetime=bar.datetime)
 
         # 将历史K线转换为计算所需数据数组
         self.highArray[-len(lastKLines):] = [b.high for b in lastKLines]
@@ -128,11 +131,11 @@ class StrategyDoubleSMA(CtaTemplate):
         self.closeArray[-len(lastKLines):] = [b.close for b in lastKLines]
 
         # 计算指标数值
-        self.shortEma = talib.MA(self.closeArray, self.period[0])[-1]  # 计算EMA
+        self.shortEma = talib.MA(self.closeArray, self.shortPeriod)[-1]  # 计算EMA
         self.shortArray[0:self.bufferSize - 1] = self.shortArray[1:self.bufferSize]  # 需要的EMA存储的数据列表
         self.shortArray[-1] = self.shortEma
 
-        self.longEma = talib.MA(self.closeArray, self.period[1])[-1]  # 计算EMA
+        self.longEma = talib.MA(self.closeArray, self.longPeriod)[-1]  # 计算EMA
         self.longArray[0:self.bufferSize - 1] = self.longArray[1:self.bufferSize]  # 需要的EMA存储的数据列表
         self.longArray[-1] = self.longEma
 
@@ -207,8 +210,8 @@ class StrategyDoubleSMA(CtaTemplate):
         """收到委托变化推送（必须由用户继承实现）"""
         self.lastOrder = order
 
-    def onMaPeriod(self, period):
-        self.period = period
+    # def onMaPeriod(self, period):
+    #     self.period = period
 
     def onInitDays(self, initDays):
         self.initDays = initDays
@@ -230,7 +233,7 @@ if __name__ == '__main__':
     engine.posBufferDict = {}
 
     # 在引擎中创建策略对象
-    engine.initStrategy(StrategyDoubleSMA, dict(vtSymbol='RB0000', inBacktesting=True, period=[6,15]))  # 初始化策略
+    engine.initStrategy(StrategyDoubleSMA, dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=15))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
@@ -249,29 +252,27 @@ if __name__ == '__main__':
     # 设置策略所需的均线周期，便于ctaBacktesting中画均线
     #engine.setMaPeriod([5, 14])
 
-    ## 开始跑回测-----------------------------------------------------------------------------
-    engine.runBacktesting()
+    # # 开始跑回测-----------------------------------------------------------------------------
+    # engine.runBacktesting()
+    #
+    # # 显示回测结果
+    # engine.showBacktestingResult()
 
-    ## 显示回测结果
-    engine.showBacktestingResult()
+
+    # 跑优化---------------------------------------------------------------------------------
+    setting = OptimizationSetting()                 # 新建一个优化任务设置对象
+    setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
+    setting.addParameter('shortPeriod', 4, 10, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    setting.addParameter('longPeriod', 20, 60, 5)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
+    setting.addParameter('trailingPercent', 1, 10, 1)            # 增加一个固定数值的参数
+
+    # 性能测试环境：I7-3770，主频3.4G, 8核心，内存16G，Windows 7 专业版
+    # 测试时还跑着一堆其他的程序，性能仅供参考
+    import time
+    start = time.time()
+
+    # 运行单进程优化函数，自动输出结果，耗时：359秒
+    engine.runOptimization(StrategyDoubleSMA, setting)
 
 
-    ## 跑优化---------------------------------------------------------------------------------
-    #setting = OptimizationSetting()                 # 新建一个优化任务设置对象
-    #setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    #setting.addParameter('atrLength', 12, 20, 2)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
-    #setting.addParameter('atrMa', 20, 30, 5)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    #setting.addParameter('rsiLength', 5)            # 增加一个固定数值的参数
-
-    ## 性能测试环境：I7-3770，主频3.4G, 8核心，内存16G，Windows 7 专业版
-    ## 测试时还跑着一堆其他的程序，性能仅供参考
-    #import time
-    #start = time.time()
-
-    ## 运行单进程优化函数，自动输出结果，耗时：359秒
-    #engine.runOptimization(AtrRsiStrategy, setting)
-
-    ## 多进程优化，耗时：89秒
-    ##engine.runParallelOptimization(AtrRsiStrategy, setting)
-
-    #print u'耗时：%s' %(time.time()-start)
+    print u'耗时：%s' %(time.time()-start)

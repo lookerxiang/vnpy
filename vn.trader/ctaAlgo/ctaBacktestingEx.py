@@ -16,7 +16,7 @@ class BacktestingEngineEx(BacktestingEngine):
     def __init__(self):
         super(BacktestingEngineEx, self).__init__()
 
-        self.period = [5, 12]  # k线周期，默认为5和12
+        #self.period = [5, 12]  # k线周期，默认为5和12
         self.backtestingData = []   # 回测用的数据
 
     # ----------------------------------------------------------------------
@@ -182,20 +182,29 @@ class BacktestingEngineEx(BacktestingEngine):
 
         ts = pd.Series(closedata, index=pd.DatetimeIndex(timedata))
         # pd.rolling_mean(ts ,self.period).plot()
-        if isinstance(self.period, list):  #如果是列表则循环
-            for prd in self.period:
-                ts.rolling(window=prd, win_type='boxcar').mean().plot()
-        else:                              #否则
-            ts.rolling(window=self.period, win_type='boxcar').mean().plot()
+        # if isinstance(self.period, list):  #如果是列表则循环
+        #     for prd in self.period:
+        #         ts.rolling(window=prd, win_type='boxcar').mean().plot()
+        # else:                              #否则
+        #     ts.rolling(window=self.period, win_type='boxcar').mean().plot()
+
+        if hasattr(self.strategy, 'shortPeriod'):
+            ts.rolling(window=self.strategy.shortPeriod, win_type='boxcar').mean().plot()
+        if hasattr(self.strategy, 'middlePeriod'):
+            ts.rolling(window=self.strategy.middlePeriod, win_type='boxcar').mean().plot()
+        if hasattr(self.strategy, 'longPeriod'):
+            ts.rolling(window=self.strategy.longPeriod, win_type='boxcar').mean().plot()
+
+
 
         tradeplot.legend(loc='best')
         plt.show()
 
     # ----------------------------------------------------------------------
-    def setMaPeriod(self, period):
-        """设置均线周期"""
-        self.period = period  # 将周期赋值给BacktestingEngine类的实例的属性self.period
-        self.strategy.onMaPeriod(self.period)  # 并将其回调给strategy。目的是使得二者的周期Ma一致
+    # def setMaPeriod(self, period):
+    #     """设置均线周期"""
+    #     self.period = period  # 将周期赋值给BacktestingEngine类的实例的属性self.period
+    #     self.strategy.onMaPeriod(self.period)  # 并将其回调给strategy。目的是使得二者的周期Ma一致
 
 if __name__ == '__main__':
     # 以下内容是一段回测脚本的演示，用户可以根据自己的需求修改
