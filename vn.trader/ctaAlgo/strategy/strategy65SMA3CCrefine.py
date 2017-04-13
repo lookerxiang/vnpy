@@ -20,15 +20,15 @@ class StrategyDoubleSMA(CtaTemplate):
     author = u'向律楷'
 
     # 策略参数
-    trailingPercent = 5.0  # 百分比移动止损，必须用浮点数
+    trailingPercent = 8.0  # 百分比移动止损，必须用浮点数
     #period = [5, 14]  # EMA周期
-    shortPeriod = 5
-    longPeriod = 14
+    shortPeriod = 4
+    longPeriod = 20
 
     # 策略变量
     bar = None  # K线对象
     barMinute = ''  # K线当前的分钟
-    bufferSize = 100  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
+    bufferSize = 20  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
     bufferCount = 0  # 目前已经缓存了的数据的计数
     initSize = 0
     initCount = 0  # 目前已经缓存了的数据的计数
@@ -49,7 +49,7 @@ class StrategyDoubleSMA(CtaTemplate):
     longArray = np.zeros(bufferSize)  # 短期EMA数组
 
     Ravi = 0
-    RaviCount = 0  # 目前已缓存的短期EMA计数
+    RaviLimit = 0.3  # 目前已缓存的短期EMA计数
     RaviList = []  # 短期EMA数组
 
     orderList = []  # 保存委托代码的列表
@@ -65,7 +65,8 @@ class StrategyDoubleSMA(CtaTemplate):
                  'vtSymbol',
                  'trailingPercent',
                  'shortPeriod',
-                 'longPeriod'
+                 'longPeriod',
+                 'RaviLimit'
                  ]
 
     # 变量列表，保存了变量的名称
@@ -130,6 +131,11 @@ class StrategyDoubleSMA(CtaTemplate):
         self.lowArray[-len(lastKLines):] = [b.low for b in lastKLines]
         self.closeArray[-len(lastKLines):] = [b.close for b in lastKLines]
 
+        #保证初始化数据足够，否则计算指标时，数据不够，计算不准确
+        self.bufferCount += 1
+        if self.bufferCount < self.bufferSize or self.initCount < self.initSize:
+            return
+
         # 计算指标数值
         self.shortEma = talib.MA(self.closeArray, self.shortPeriod)[-1]  # 计算EMA
         self.shortArray[0:self.bufferSize - 1] = self.shortArray[1:self.bufferSize]  # 需要的EMA存储的数据列表
@@ -140,8 +146,8 @@ class StrategyDoubleSMA(CtaTemplate):
         self.longArray[-1] = self.longEma
 
         self.Ravi = abs((self.shortEma - self.longEma) / self.longEma * 100)  # 运动辨识指数，用于过震荡时的虚假信号
-        self.RaviList.append(self.Ravi)
-        print bar.datetime, self.Ravi
+        # self.RaviList.append(self.Ravi)
+        # print bar.datetime, self.Ravi
 
     # ----------------------------------------------------------------------
     def onBar(self, bar):
@@ -163,7 +169,7 @@ class StrategyDoubleSMA(CtaTemplate):
             if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2] and \
                             self.closeArray[-3] > self.longArray[-3]:
                 if self.closeArray[-1] > self.shortArray[-1] > self.shortArray[-2]:
-                    if self.Ravi > 1.0:
+                    if self.Ravi > self.RaviLimit:
                         orderID = self.buy(bar.close + 5, 1)
                         self.orderList.append(orderID)
 
@@ -171,7 +177,7 @@ class StrategyDoubleSMA(CtaTemplate):
             elif self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2] and \
                             self.closeArray[-3] < self.longArray[-3]:
                 if self.closeArray[-1] < self.shortArray[-1] < self.shortArray[-2]:
-                    if self.Ravi > 1.0:
+                    if self.Ravi > self.RaviLimit:
                         orderID = self.short(bar.close - 5, 1)
                         self.orderList.append(orderID)
 
@@ -181,7 +187,7 @@ class StrategyDoubleSMA(CtaTemplate):
             self.intraTradeLow = bar.low
 
             # 计算多头移动止损
-            longStop = self.intraTradeHigh * (1 - self.trailingPercent / 100)
+            longStop = self.intraTradeHigh * (1 - self.trailingPercent / 100.0)
 
             # 计算突破均线止损
             if self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2]:
@@ -196,7 +202,7 @@ class StrategyDoubleSMA(CtaTemplate):
             self.intraTradeLow = min(self.intraTradeLow, bar.low)
             self.intraTradeHigh = bar.high
             # 计算空头移动止损
-            longStop = self.intraTradeLow * (1 + self.trailingPercent / 100)
+            longStop = self.intraTradeLow * (1 + self.trailingPercent / 100.0)
             # 计算突破均线止损
             if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2]:
                 longStop = min(bar.close, longStop)
@@ -220,7 +226,7 @@ class StrategyDoubleSMA(CtaTemplate):
 if __name__ == '__main__':
     # 提供直接双击回测的功能
     # 导入PyQt4的包是为了保证matplotlib使用PyQt4而不是PySide，防止初始化出错
-    from ctaBacktesting import *
+    from ctaBacktestingEx import *
     from vtEngine import MainEngine
     import os
 
@@ -228,12 +234,12 @@ if __name__ == '__main__':
     sys.path.append(path)
 
     # 创建回测引擎
-    engine = BacktestingEngine()
+    engine = BacktestingEngineEx()
     engine.mainEngine = MainEngine()
     engine.posBufferDict = {}
 
     # 在引擎中创建策略对象
-    engine.initStrategy(StrategyDoubleSMA, dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=15))  # 初始化策略
+    engine.initStrategy(StrategyDoubleSMA, dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=4, longPeriod=20))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
@@ -252,27 +258,34 @@ if __name__ == '__main__':
     # 设置策略所需的均线周期，便于ctaBacktesting中画均线
     #engine.setMaPeriod([5, 14])
 
-    # # 开始跑回测-----------------------------------------------------------------------------
-    # engine.runBacktesting()
+    # 开始跑回测-----------------------------------------------------------------------------
+    engine.runBacktesting()
+
+    # 显示回测结果
+    engine.showBacktestingResult()
+
+
+    # # 跑优化---------------------------------------------------------------------------------
+    # setting = OptimizationSetting()                 # 新建一个优化任务设置对象
+    # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
+    # setting.addParameter('shortPeriod', 4, 4, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    # setting.addParameter('longPeriod', 20, 20, 10)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
+    # setting.addParameter('trailingPercent', 8.0, 8.0, 1.0)            # 增加一个固定数值的参数
+    # setting.addParameter('RaviLimit', 0.0, 2.0, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
+    # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
     #
-    # # 显示回测结果
-    # engine.showBacktestingResult()
-
-
-    # 跑优化---------------------------------------------------------------------------------
-    setting = OptimizationSetting()                 # 新建一个优化任务设置对象
-    setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    setting.addParameter('shortPeriod', 4, 10, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
-    setting.addParameter('longPeriod', 20, 60, 5)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    setting.addParameter('trailingPercent', 1, 10, 1)            # 增加一个固定数值的参数
-
-    # 性能测试环境：I7-3770，主频3.4G, 8核心，内存16G，Windows 7 专业版
-    # 测试时还跑着一堆其他的程序，性能仅供参考
-    import time
-    start = time.time()
-
-    # 运行单进程优化函数，自动输出结果，耗时：359秒
-    engine.runOptimization(StrategyDoubleSMA, setting)
-
-
-    print u'耗时：%s' %(time.time()-start)
+    #
+    #
+    # # 性能测试环境：I7-3770，主频3.4G, 8核心，内存16G，Windows 7 专业版
+    # # 测试时还跑着一堆其他的程序，性能仅供参考
+    # import time
+    # start = time.time()
+    #
+    # # # 运行单进程优化函数，自动输出结果，耗时：359秒
+    # # engine.runOptimization(StrategyDoubleSMA, setting)
+    #
+    # # 多进程优化，耗时：89秒
+    # engine.runParallelOptimization(StrategyDoubleSMA, setting)
+    #
+    # print u'耗时：%s' %(time.time()-start)
