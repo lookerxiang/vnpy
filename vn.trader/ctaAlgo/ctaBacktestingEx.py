@@ -8,6 +8,7 @@
 from ctaAlgo.ctaBacktesting import *
 import numpy as np
 import pandas as pd
+from math import floor
 
 
 ########################################################################
@@ -105,6 +106,217 @@ class BacktestingEngineEx(BacktestingEngine):
         self.output(u'数据回放结束')
 
     # ----------------------------------------------------------------------
+    def calculateBacktestingResult(self):
+        """
+        计算回测结果
+        """
+        self.output(u'计算回测结果')
+
+        # 首先基于回测后的成交记录，计算每笔交易的盈亏
+        resultList = []  # 交易结果列表
+
+        longTrade = []  # 未平仓的多头交易
+        shortTrade = []  # 未平仓的空头交易
+
+        for trade in self.tradeDict.values():
+            # 多头交易
+            if trade.direction == DIRECTION_LONG:
+                # 如果尚无空头交易
+                if not shortTrade:
+                    longTrade.append(trade)
+                # 当前多头交易为平空
+                else:
+                    while True:
+                        entryTrade = shortTrade[0]
+                        exitTrade = trade
+
+                        # 清算开平仓交易
+                        closedVolume = min(exitTrade.volume, entryTrade.volume)
+                        result = TradingResult(entryTrade.price, entryTrade.dt,
+                                               exitTrade.price, exitTrade.dt,
+                                               -closedVolume, self.rate, self.slippage, self.size)
+                        resultList.append(result)
+
+                        # 计算未清算部分
+                        entryTrade.volume -= closedVolume
+                        exitTrade.volume -= closedVolume
+
+                        # 如果开仓交易已经全部清算，则从列表中移除
+                        if not entryTrade.volume:
+                            shortTrade.pop(0)
+
+                        # 如果平仓交易已经全部清算，则退出循环
+                        if not exitTrade.volume:
+                            break
+
+                        # 如果平仓交易未全部清算，
+                        if exitTrade.volume:
+                            # 且开仓交易已经全部清算完，则平仓交易剩余的部分
+                            # 等于新的反向开仓交易，添加到队列中
+                            if not shortTrade:
+                                longTrade.append(exitTrade)
+                                break
+                            # 如果开仓交易还有剩余，则进入下一轮循环
+                            else:
+                                pass
+
+            # 空头交易
+            else:
+                # 如果尚无多头交易
+                if not longTrade:
+                    shortTrade.append(trade)
+                # 当前空头交易为平多
+                else:
+                    while True:
+                        entryTrade = longTrade[0]
+                        exitTrade = trade
+
+                        # 清算开平仓交易
+                        closedVolume = min(exitTrade.volume, entryTrade.volume)
+                        result = TradingResult(entryTrade.price, entryTrade.dt,
+                                               exitTrade.price, exitTrade.dt,
+                                               closedVolume, self.rate, self.slippage, self.size)
+                        resultList.append(result)
+
+                        # 计算未清算部分
+                        entryTrade.volume -= closedVolume
+                        exitTrade.volume -= closedVolume
+
+                        # 如果开仓交易已经全部清算，则从列表中移除
+                        if not entryTrade.volume:
+                            longTrade.pop(0)
+
+                        # 如果平仓交易已经全部清算，则退出循环
+                        if not exitTrade.volume:
+                            break
+
+                        # 如果平仓交易未全部清算，
+                        if exitTrade.volume:
+                            # 且开仓交易已经全部清算完，则平仓交易剩余的部分
+                            # 等于新的反向开仓交易，添加到队列中
+                            if not longTrade:
+                                shortTrade.append(exitTrade)
+                                break
+                            # 如果开仓交易还有剩余，则进入下一轮循环
+                            else:
+                                pass
+
+                                # 检查是否有交易
+        if not resultList:
+            self.output(u'无交易结果')
+            return {}
+
+        # 然后基于每笔交易的结果，我们可以计算具体的盈亏曲线和最大回撤等
+        capital = 0  # 资金
+        maxCapital = 0  # 资金最高净值
+        drawdown = 0  # 回撤
+
+        totalResult = 0  # 总成交数量
+        totalTurnover = 0  # 总成交金额（合约面值）
+        totalCommission = 0  # 总手续费
+        totalSlippage = 0  # 总滑点
+
+        timeList = []  # 时间序列
+        pnlList = []  # 每笔盈亏序列
+        capitalList = []  # 盈亏汇总的时间序列
+        drawdownList = []  # 回撤的时间序列
+
+        maxContinueDrawdownNumber = 0  # 最长连续回撤次数
+        continueDrawdownNumberList = []  # 连续回撤次数列表
+        maxContinueDrawdownTime = 0  # 最长连续回撤时间
+        continueDrawdownTimeList = []  # 连续回撤时间列表
+
+        
+        drawdownCount = 0
+
+        
+
+
+        winningResult = 0  # 盈利次数
+        losingResult = 0  # 亏损次数
+        totalWinning = 0  # 总盈利金额
+        totalLosing = 0  # 总亏损金额
+
+        for result in resultList:
+            capital += result.pnl
+            maxCapital = max(capital, maxCapital)
+            drawdown = capital - maxCapital
+
+            pnlList.append(result.pnl)
+            timeList.append(result.exitDt)  # 交易的时间戳使用平仓时间
+            capitalList.append(capital)
+            drawdownList.append(drawdown)
+
+            totalResult += 1
+            totalTurnover += result.turnover
+            totalCommission += result.commission
+            totalSlippage += result.slippage
+
+            if result.pnl >= 0:
+                winningResult += 1
+                totalWinning += result.pnl
+            else:
+                losingResult += 1
+                totalLosing += result.pnl
+
+            #计算最大连续回测次数和时间
+            if result.pnl < 0:
+                drawdownCount += 1
+                if drawdownCount == 1:
+                    maxContinueDrawdownStartTime = result.entryDt
+                maxContinueDrawdownEndTime = result.exitDt
+                tempTime = maxContinueDrawdownEndTime - maxContinueDrawdownStartTime
+                tempNumber = drawdownCount
+
+                if totalResult == len(resultList) and drawdownCount == 1:#最后一个为负，且倒数第二个为正
+                    continueDrawdownTimeList.append(result.exitDt - result.entryDt)
+                    continueDrawdownNumberList.append(1)
+            else:
+                if drawdownCount >= 1:
+                    continueDrawdownTimeList.append(tempTime)
+                    continueDrawdownNumberList.append(tempNumber)
+                drawdownCount = 0
+        # 计算盈亏相关数据
+        winningRate = floor(winningResult) / totalResult * 100.0  # 胜率
+
+        averageWinning = 0  # 这里把数据都初始化为0
+        averageLosing = 0
+        profitLossRatio = 0
+
+        if winningResult:
+            averageWinning = totalWinning / winningResult  # 平均每笔盈利
+        if losingResult:
+            averageLosing = totalLosing / losingResult  # 平均每笔亏损
+        if averageLosing:
+            profitLossRatio = -averageWinning / averageLosing  # 盈亏比
+
+        maxContinueDrawdownNumber = max(continueDrawdownNumberList)
+        maxContinueDrawdownTime=max(continueDrawdownTimeList)
+        # 返回回测结果
+        d = {}
+        d['capital'] = capital
+        d['maxCapital'] = maxCapital
+        d['drawdown'] = drawdown
+        d['totalResult'] = totalResult
+        d['totalTurnover'] = totalTurnover
+        d['totalCommission'] = totalCommission
+        d['totalSlippage'] = totalSlippage
+        d['timeList'] = timeList
+        d['pnlList'] = pnlList
+        d['capitalList'] = capitalList
+        d['drawdownList'] = drawdownList
+        d['winningRate'] = winningRate
+        d['averageWinning'] = averageWinning
+        d['averageLosing'] = averageLosing
+        d['profitLossRatio'] = profitLossRatio
+        d['maxContinueDrawdownNumber'] = maxContinueDrawdownNumber
+        d['maxContinueDrawdownTime'] = maxContinueDrawdownTime
+
+
+        return d
+
+
+    # ----------------------------------------------------------------------
     def showBacktestingResult(self):
         """显示回测结果"""
         d = self.calculateBacktestingResult()
@@ -126,6 +338,10 @@ class BacktestingEngineEx(BacktestingEngine):
         self.output(u'盈利交易平均值\t%s' % formatNumber(d['averageWinning']))
         self.output(u'亏损交易平均值\t%s' % formatNumber(d['averageLosing']))
         self.output(u'盈亏比：\t%s' % formatNumber(d['profitLossRatio']))
+        self.output(u'最大连续回撤次数：\t%s' % d['maxContinueDrawdownNumber'])
+        self.output(u'最大连续回撤时间：\t%s' % d['maxContinueDrawdownTime'])
+
+
 
         # 绘图
         import matplotlib.pyplot as plt
@@ -175,9 +391,9 @@ class BacktestingEngineEx(BacktestingEngine):
 
         fig = plt.figure(2)
         tradeplot = fig.add_subplot(1, 1, 1)
-        tradeplot.plot(timedata, closedata, marker='.')
+        tradeplot.plot(timedata, closedata, 'y', marker='.',label="close price")
         tradeplot.plot(longtime, longprice, 'r^', label="duo")  #
-        tradeplot.plot(shorttime, shortprice, 'g^', label='kong')
+        tradeplot.plot(shorttime, shortprice, 'gv', label='kong')
         tradeplot.plot(closetime, closeprice, 'ko', label='no')
 
         ts = pd.Series(closedata, index=pd.DatetimeIndex(timedata))
@@ -198,6 +414,7 @@ class BacktestingEngineEx(BacktestingEngine):
 
 
         tradeplot.legend(loc='best')
+        plt.grid(True)
         plt.show()
 
     # ----------------------------------------------------------------------
