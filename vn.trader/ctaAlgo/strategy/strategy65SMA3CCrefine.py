@@ -28,7 +28,7 @@ class StrategyDoubleSMA(CtaTemplate):
     # 策略变量
     bar = None  # K线对象
     barMinute = ''  # K线当前的分钟
-    bufferSize = 20  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
+    bufferSize = 60  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
     bufferCount = 0  # 目前已经缓存了的数据的计数
     initSize = 0
     initCount = 0  # 目前已经缓存了的数据的计数
@@ -239,13 +239,13 @@ if __name__ == '__main__':
     engine.posBufferDict = {}
 
     # 在引擎中创建策略对象
-    engine.initStrategy(StrategyDoubleSMA, dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=4, longPeriod=20))  # 初始化策略
+    engine.initStrategy(StrategyDoubleSMA, dict(vtSymbol='CU0000', inBacktesting=True, shortPeriod=9, longPeriod=55, trailingPercent=7.0, RaviLimit=0.8))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20090327', initDays=StrategyDoubleSMA.bufferSize * 2)
+    engine.setStartDate('20000717', initDays=StrategyDoubleSMA.bufferSize * 2)
     engine.setEndDate('20170222')
 
     # 设置产品相关参数
@@ -268,12 +268,12 @@ if __name__ == '__main__':
     # # 跑优化---------------------------------------------------------------------------------
     # setting = OptimizationSetting()                 # 新建一个优化任务设置对象
     # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    # setting.addParameter('shortPeriod', 4, 4, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
-    # setting.addParameter('longPeriod', 20, 20, 10)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    # setting.addParameter('trailingPercent', 8.0, 8.0, 1.0)            # 增加一个固定数值的参数
-    # setting.addParameter('RaviLimit', 0.0, 2.0, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('shortPeriod', 9, 9, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    # setting.addParameter('longPeriod', 15, 60, 5)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
+    # setting.addParameter('trailingPercent', 7.0, 7.0, 1.0)            # 增加一个固定数值的参数
+    # setting.addParameter('RaviLimit', 0.8, 0.8, 0.1)            # 增加一个固定数值的参数
     # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
-    # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
+    # setting.addParameter('vtSymbol', 'CU0000')            # 增加一个固定数值的参数
     #
     #
     #
