@@ -8,11 +8,13 @@
 4. 封装K线回调注册以及历史K线获取API，对应实盘和回测
 
 注意：
-onInit和onTrade有实现代码，重写时需手动调用！
+onInit、onStart、onTrade有实现代码，重写时需手动调用！
 """
 
 import bisect
+import datetime as dt
 import itertools
+import time
 
 import pymongo
 
@@ -44,15 +46,20 @@ class CtaTemplate(CtaTemplateOrginal):
                 self.backtestingDbCacheReachOldest = False
 
     def onInit(self):
-        """初始化策略"""
+        self.backtestingDbCacheReachOldest = False
+
+    def onStart(self):
+        """启动策略"""
         # 实盘获取当前仓位
+        # 仓位获取不能在onInit时候做，因为此时ctaEngine尚未将vtSymbol加入到tickStrategyDict中，posBufferDict没有对应数据
         if not self.inBacktesting:
-            # 获取持仓缓存数据
-            posBuffer = self.ctaEngine.posBufferDict.get(self.vtSymbol, None)
-            if posBuffer:
-                self.pos = posBuffer.longPosition - posBuffer.shortPosition
-        else:
-            self.backtestingDbCacheReachOldest = False
+            # 使用循环确保获取持仓缓存数据
+            while True:
+                posBuffer = self.ctaEngine.posBufferDict.get(self.vtSymbol, None)
+                if posBuffer:
+                    self.pos = posBuffer.longPosition - posBuffer.shortPosition
+                    break
+                time.sleep(1)
 
     def sell(self, price, volume, stop=False):
         """卖平"""
@@ -109,13 +116,17 @@ class CtaTemplate(CtaTemplateOrginal):
         vtOrderID = self.sendOrder(CTAORDER_COVER, price, volume, stop)
         return (vtOrderID,)
 
+    def getOrderDbName(self):
+        return '{}_{}'.format(self.className, self.vtSymbol.upper())
+
     def onTrade(self, trade):
         """收到成交推送"""
         # 实盘存储每笔交易信息
         if not self.inBacktesting:
-            self.ctaEngine.insertData(STRATEGY_TRADE_DB_NAME,
-                                      '{}_{}'.format(self.className, trade.symbol),
-                                      trade)
+            # 额外记录成交的日期时间
+            trade.tradeDatetime = dt.datetime.strptime(
+                    ' '.join([dt.date.today().isoformat(), trade.tradeTime]), '%Y-%m-%d %H:%M:%S')
+            self.ctaEngine.insertData(STRATEGY_TRADE_DB_NAME, self.getOrderDbName(), trade)
 
     def getLastKlines(self, count, period=drEngineEx.ctaKLine.PERIOD_1MIN, from_datetime=None,
                       symbol=None, only_completed=True, newest_tick_datetime=None):
@@ -150,8 +161,7 @@ class CtaTemplate(CtaTemplateOrginal):
         klines = list(col.find(filter={'datetime': {'$lte': from_datetime}},
                                projection={'_id': False},
                                limit=count,
-                               sort=(('date', pymongo.DESCENDING),
-                                     ('time', pymongo.DESCENDING))))
+                               sort=(('datetime', pymongo.DESCENDING),)))
         klines.reverse()
         if len(klines) < count:  # 数据库中已无更靠前的数据
             self.backtestingDbCacheReachOldest = True
@@ -159,8 +169,7 @@ class CtaTemplate(CtaTemplateOrginal):
         klinesPreRead = list(col.find(filter={'datetime': {'$gt': from_datetime}},
                                       projection={'_id': False},
                                       limit=self.backtestingDbCacheSize - len(klines),
-                                      sort=(('date', pymongo.ASCENDING),
-                                            ('time', pymongo.ASCENDING))))
+                                      sort=(('datetime', pymongo.ASCENDING),)))
         self.backtestingDbCache = []
         for kline in itertools.chain(klines, klinesPreRead):
             self.backtestingDbCache.append(drEngineEx.ctaKLine.KLine(None))

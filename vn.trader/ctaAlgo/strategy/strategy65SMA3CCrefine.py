@@ -8,9 +8,10 @@ import datetime as dt
 
 import numpy as np
 import talib
+import pymongo
 
 import dataRecorder.drEngineEx as dre
-from ctaAlgo.ctaTemplateEx import CtaTemplate
+from ctaAlgo.ctaTemplateEx import (CtaTemplate, STRATEGY_TRADE_DB_NAME)
 
 
 ########################################################################
@@ -29,7 +30,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
     # 策略变量
     bar = None  # K线对象
     barMinute = ''  # K线当前的分钟
-    bufferSize = longPeriod  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
+    bufferSize = 60  # 需要缓存的数据的量，应该小于等于初始化数据所用的天数里的数据量，以使得程序可以立即进入交易状态。
     bufferCount = 0  # 目前已经缓存了的数据的计数
     initSize = 0
     initCount = 0  # 目前已经缓存了的数据的计数
@@ -67,7 +68,8 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                  'trailingPercent',
                  'shortPeriod',
                  'longPeriod',
-                 'RaviLimit'
+                 'RaviLimit',
+                 'klinePeriod'
                  ]
 
     # 变量列表，保存了变量的名称
@@ -109,8 +111,52 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         """启动策略（必须由用户继承实现）"""
         self.writeCtaLog(u'双EMA演示策略启动')
 
+        # ！！手动调用父类实现
+        super(Strategy65SMA3CCRefine, self).onStart()
+
         # 注册K线回调
         self.registerOnbar((self.klinePeriod,))
+
+        # 实盘中，使用交易记录初始化intraTradeHigh和intraTradeLow
+        if not self.inBacktesting:
+            # 根据仓位判断方向
+            dir = None
+            if self.pos > 0:
+                dir = u'多'
+            elif self.pos < 0:
+                dir = u'空'
+
+            if dir:  # 有仓位
+                posForSearch = self.pos  # 仓位临时变量
+                targetTrade = None  # 交易记录检索对象
+
+                # 从数据库中获取尚未平仓的交易记录
+                col = self.ctaEngine.mainEngine.dbClient[STRATEGY_TRADE_DB_NAME][self.getOrderDbName()]
+                cursor = col.find(filter={'direction': dir, 'offset': u'开仓'},
+                                  projection={'_id': False},
+                                  sort=(('tradeDatetime', pymongo.DESCENDING),))  # 按时间倒序回溯
+                for trade in cursor:
+                    posForSearch -= trade['volume']
+                    if posForSearch <= 0:  # 找到当前仓位中最早的成交记录
+                        targetTrade = trade
+                        break
+
+                if targetTrade:
+                    # 遍历从最早成交记录开始到现在为止的K线数据
+                    col = self.ctaEngine.mainEngine.dbClient[
+                        dre.ctaKLine.KLINE_DB_NAMES[self.klinePeriod]][self.vtSymbol.upper()]
+                    cursor = col.find(filter={'datetime': {'$gte': targetTrade['tradeDatetime'],
+                                                           '$lte': dt.datetime.now()}},
+                                      projection={'_id': False},
+                                      sort=(('datetime', pymongo.ASCENDING),))
+                    for kline in cursor:
+                        # 更新intraTradeHigh和intraTradeLow
+                        if self.pos > 0:
+                            self.intraTradeHigh = max(self.intraTradeHigh, kline['high'])
+                            self.intraTradeLow = kline['low']
+                        elif self.pos < 0:
+                            self.intraTradeLow = min(self.intraTradeLow, kline['low'])
+                            self.intraTradeHigh = kline['high']
 
         self.putEvent()
 
@@ -125,8 +171,9 @@ class Strategy65SMA3CCRefine(CtaTemplate):
 
     def updateData(self, bar):
         # 获取历史K线
-        lastKLines = self.getLastKlines(self.longPeriod, self.klinePeriod, from_datetime=bar.datetime)
-        # print lastKLines[:1], lastKLines[-1:]
+        lastKLines = self.getLastKlines(self.bufferSize, self.klinePeriod, from_datetime=bar.datetime)
+        if len(lastKLines) == 0:
+            return
 
         # 将历史K线转换为计算所需数据数组
         self.highArray[-len(lastKLines):] = [b.high for b in lastKLines]
@@ -134,8 +181,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         self.closeArray[-len(lastKLines):] = [b.close for b in lastKLines]
 
         # 保证初始化数据足够，否则计算指标时，数据不够，计算不准确
-        self.bufferCount += 1
-        if self.bufferCount < self.bufferSize or self.initCount < self.initSize:
+        if len(lastKLines) < self.longPeriod:
             return
 
         # 计算指标数值
@@ -245,14 +291,14 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='CU0000', inBacktesting=True, shortPeriod=9, longPeriod=55, trailingPercent=7.0,
-                             RaviLimit=0.8))  # 初始化策略
+                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=9, longPeriod=55, trailingPercent=7.0,
+                             RaviLimit=0.8, klinePeriod=dre.ctaKLine.PERIOD_1DAY))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20000717', initDays=Strategy65SMA3CCRefine.bufferSize * 2)
+    engine.setStartDate('20090327', initDays=Strategy65SMA3CCRefine.bufferSize * 2)
     engine.setEndDate('20170222')
 
     # 设置产品相关参数
