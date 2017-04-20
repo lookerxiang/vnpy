@@ -8,22 +8,24 @@ import datetime as dt
 
 import numpy as np
 import talib
+import pymongo
 
 import dataRecorder.drEngineEx as dre
-from ctaAlgo.ctaTemplateEx import CtaTemplate
+from ctaAlgo.ctaTemplateEx import (CtaTemplate, STRATEGY_TRADE_DB_NAME)
 
 
 ########################################################################
-class StrategyDoubleSMA(CtaTemplate):
+class Strategy65SMA3CCRefine(CtaTemplate):
     """结合ATR和RSI指标的一个分钟线交易策略"""
     className = 'StrategySingleSMA'
     author = u'向律楷'
 
     # 策略参数
     trailingPercent = 8.0  # 百分比移动止损，必须用浮点数
-    #period = [5, 14]  # EMA周期
+    # period = [5, 14]  # EMA周期
     shortPeriod = 4
     longPeriod = 20
+    klinePeriod = dre.ctaKLine.PERIOD_1MIN
 
     # 策略变量
     bar = None  # K线对象
@@ -34,7 +36,7 @@ class StrategyDoubleSMA(CtaTemplate):
     initCount = 0  # 目前已经缓存了的数据的计数
 
     intraTradeHigh = 0  # 移动止损用的持仓期内最高价
-    intraTradeLow = 0  # 移动止损用的持仓期内最低价
+    intraTradeLow = 0x7FFFFFFFF  # 移动止损用的持仓期内最低价
 
     highArray = np.zeros(bufferSize)  # K线最高价的数组
     lowArray = np.zeros(bufferSize)  # K线最低价的数组
@@ -49,7 +51,7 @@ class StrategyDoubleSMA(CtaTemplate):
     longArray = np.zeros(bufferSize)  # 短期EMA数组
 
     Ravi = 0
-    RaviLimit = 0.3  # 目前已缓存的短期EMA计数
+    RaviLimit = 0.0  # 目前已缓存的短期EMA计数
     RaviList = []  # 短期EMA数组
 
     orderList = []  # 保存委托代码的列表
@@ -66,7 +68,8 @@ class StrategyDoubleSMA(CtaTemplate):
                  'trailingPercent',
                  'shortPeriod',
                  'longPeriod',
-                 'RaviLimit'
+                 'RaviLimit',
+                 'klinePeriod'
                  ]
 
     # 变量列表，保存了变量的名称
@@ -79,7 +82,7 @@ class StrategyDoubleSMA(CtaTemplate):
 
     def __init__(self, ctaEngine, setting):
         """Constructor"""
-        super(StrategyDoubleSMA, self).__init__(ctaEngine, setting)
+        super(Strategy65SMA3CCRefine, self).__init__(ctaEngine, setting)
 
         # 注意策略类中的可变对象属性（通常是list和dict等），在策略初始化时需要重新创建，
         # 否则会出现多个策略实例之间数据共享的情况，有可能导致潜在的策略逻辑错误风险，
@@ -93,11 +96,11 @@ class StrategyDoubleSMA(CtaTemplate):
         self.writeCtaLog(u'双EMA演示策略初始化')
 
         # ！！手动调用父类实现
-        super(StrategyDoubleSMA, self).onInit()
+        super(Strategy65SMA3CCRefine, self).onInit()
 
         # 载入历史数据，并采用回放计算的方式初始化策略数值
         startDatetime = self.ctaEngine.strategyStartDate if self.inBacktesting else dt.datetime.now()
-        initData = self.getLastKlines(self.longPeriod, period=dre.ctaKLine.PERIOD_1DAY, from_datetime=startDatetime)
+        initData = self.getLastKlines(self.longPeriod, period=self.klinePeriod, from_datetime=startDatetime)
 
         for bar in initData:
             self.updateData(bar)
@@ -108,8 +111,52 @@ class StrategyDoubleSMA(CtaTemplate):
         """启动策略（必须由用户继承实现）"""
         self.writeCtaLog(u'双EMA演示策略启动')
 
+        # ！！手动调用父类实现
+        super(Strategy65SMA3CCRefine, self).onStart()
+
         # 注册K线回调
-        self.registerOnbar((dre.ctaKLine.PERIOD_1DAY,))
+        self.registerOnbar((self.klinePeriod,))
+
+        # 实盘中，使用交易记录初始化intraTradeHigh和intraTradeLow
+        if not self.inBacktesting:
+            # 根据仓位判断方向
+            dir = None
+            if self.pos > 0:
+                dir = u'多'
+            elif self.pos < 0:
+                dir = u'空'
+
+            if dir:  # 有仓位
+                posForSearch = self.pos  # 仓位临时变量
+                targetTrade = None  # 交易记录检索对象
+
+                # 从数据库中获取尚未平仓的交易记录
+                col = self.ctaEngine.mainEngine.dbClient[STRATEGY_TRADE_DB_NAME][self.getOrderDbName()]
+                cursor = col.find(filter={'direction': dir, 'offset': u'开仓'},
+                                  projection={'_id': False},
+                                  sort=(('tradeDatetime', pymongo.DESCENDING),))  # 按时间倒序回溯
+                for trade in cursor:
+                    posForSearch -= trade['volume']
+                    if posForSearch <= 0:  # 找到当前仓位中最早的成交记录
+                        targetTrade = trade
+                        break
+
+                if targetTrade:
+                    # 遍历从最早成交记录开始到现在为止的K线数据
+                    col = self.ctaEngine.mainEngine.dbClient[
+                        dre.ctaKLine.KLINE_DB_NAMES[self.klinePeriod]][self.vtSymbol.upper()]
+                    cursor = col.find(filter={'datetime': {'$gte': targetTrade['tradeDatetime'],
+                                                           '$lte': dt.datetime.now()}},
+                                      projection={'_id': False},
+                                      sort=(('datetime', pymongo.ASCENDING),))
+                    for kline in cursor:
+                        # 更新intraTradeHigh和intraTradeLow
+                        if self.pos > 0:
+                            self.intraTradeHigh = max(self.intraTradeHigh, kline['high'])
+                            self.intraTradeLow = kline['low']
+                        elif self.pos < 0:
+                            self.intraTradeLow = min(self.intraTradeLow, kline['low'])
+                            self.intraTradeHigh = kline['high']
 
         self.putEvent()
 
@@ -118,22 +165,23 @@ class StrategyDoubleSMA(CtaTemplate):
         self.writeCtaLog(u'双EMA演示策略停止')
 
         # 注销K线回调
-        self.unregisterOnbar((dre.ctaKLine.PERIOD_1DAY,))
-        
+        self.unregisterOnbar((self.klinePeriod,))
+
         self.putEvent()
 
     def updateData(self, bar):
         # 获取历史K线
-        lastKLines = self.getLastKlines(self.longPeriod, dre.ctaKLine.PERIOD_1DAY, from_datetime=bar.datetime)
+        lastKLines = self.getLastKlines(self.bufferSize, self.klinePeriod, from_datetime=bar.datetime)
+        if len(lastKLines) == 0:
+            return
 
         # 将历史K线转换为计算所需数据数组
         self.highArray[-len(lastKLines):] = [b.high for b in lastKLines]
         self.lowArray[-len(lastKLines):] = [b.low for b in lastKLines]
         self.closeArray[-len(lastKLines):] = [b.close for b in lastKLines]
 
-        #保证初始化数据足够，否则计算指标时，数据不够，计算不准确
-        self.bufferCount += 1
-        if self.bufferCount < self.bufferSize or self.initCount < self.initSize:
+        # 保证初始化数据足够，否则计算指标时，数据不够，计算不准确
+        if len(lastKLines) < self.longPeriod:
             return
 
         # 计算指标数值
@@ -150,6 +198,9 @@ class StrategyDoubleSMA(CtaTemplate):
         # print bar.datetime, self.Ravi
 
     # ----------------------------------------------------------------------
+    def onTick(self, tick):
+        pass
+
     def onBar(self, bar):
         """收到Bar推送（必须由用户继承实现）"""
         # 撤销之前发出的尚未成交的委托（包括限价单和停止单）
@@ -239,13 +290,15 @@ if __name__ == '__main__':
     engine.posBufferDict = {}
 
     # 在引擎中创建策略对象
-    engine.initStrategy(StrategyDoubleSMA, dict(vtSymbol='CU0000', inBacktesting=True, shortPeriod=9, longPeriod=55, trailingPercent=7.0, RaviLimit=0.8))  # 初始化策略
+    engine.initStrategy(Strategy65SMA3CCRefine,
+                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=9, longPeriod=55, trailingPercent=7.0,
+                             RaviLimit=0.8, klinePeriod=dre.ctaKLine.PERIOD_1DAY))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20000717', initDays=StrategyDoubleSMA.bufferSize * 2)
+    engine.setStartDate('20090327', initDays=Strategy65SMA3CCRefine.bufferSize * 2)
     engine.setEndDate('20170222')
 
     # 设置产品相关参数
@@ -256,7 +309,7 @@ if __name__ == '__main__':
     # 设置使用的历史数据库
     engine.setDatabase(DAILY_DB_NAME, engine.strategy.vtSymbol)
     # 设置策略所需的均线周期，便于ctaBacktesting中画均线
-    #engine.setMaPeriod([5, 14])
+    # engine.setMaPeriod([5, 14])
 
     # 开始跑回测-----------------------------------------------------------------------------
     engine.runBacktesting()
