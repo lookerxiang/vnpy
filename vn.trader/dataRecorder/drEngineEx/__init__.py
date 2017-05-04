@@ -55,6 +55,11 @@ class CtaDrEngine(drEngine.DrEngine):
         # K线完成事件回调集合，合约代码 => 采集周期 => 回调列表
         self.kline_completed_listeners = defaultdict(lambda: defaultdict(list))
 
+        # 主力合约代码统一调整为大写
+        for k, v in self.activeSymbolDict.items():
+            if k.upper() not in self.activeSymbolDict:
+                self.activeSymbolDict[k.upper()] = v.upper()
+
     def insertData(self, dbName, collectionName, data):
         """屏蔽父类的数据库写入行为
 

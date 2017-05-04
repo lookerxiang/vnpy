@@ -15,16 +15,16 @@ import xlrd
 import ctaHistoryData
 
 FILENAME_SUFFIX = {  # 以秒单位时间差作为字典键
-    60: '_1Min_Db',
-    180: '_3Min_Db',
-    300: '_5Min_Db',
-    900: '_15Min_Db',
-    1800: '_30Min_Db',
-    3600: '_60Min_Db',
-    7200: '_120Min_Db',
-    14400: '_240Min_Db',
-    86400: '_Daily_Db',
-    604800: '_Weekly_Db',
+    60     : '_1Min_Db',
+    180    : '_3Min_Db',
+    300    : '_5Min_Db',
+    900    : '_15Min_Db',
+    1800   : '_30Min_Db',
+    3600   : '_60Min_Db',
+    7200   : '_120Min_Db',
+    14400  : '_240Min_Db',
+    86400  : '_Daily_Db',
+    604800 : '_Weekly_Db',
     2419200: '_Monthly_Db',  # 28日
     2505600: '_Monthly_Db',  # 29日
     2592000: '_Monthly_Db',  # 30日
@@ -32,16 +32,16 @@ FILENAME_SUFFIX = {  # 以秒单位时间差作为字典键
 }
 
 DBNAME = {
-    '1Min': 'VnTrader_1Min_Db',
-    '3Min': 'VnTrader_3Min_Db',
-    '5Min': 'VnTrader_5Min_Db',
-    '15Min': 'VnTrader_15Min_Db',
-    '30Min': 'VnTrader_30Min_Db',
-    '60Min': 'VnTrader_60Min_Db',
-    '120Min': 'VnTrader_120Min_Db',
-    '240Min': 'VnTrader_240Min_Db',
-    'Daily': 'VnTrader_Daily_Db',
-    'Weekly': 'VnTrader_Weekly_Db',
+    '1Min'   : 'VnTrader_1Min_Db',
+    '3Min'   : 'VnTrader_3Min_Db',
+    '5Min'   : 'VnTrader_5Min_Db',
+    '15Min'  : 'VnTrader_15Min_Db',
+    '30Min'  : 'VnTrader_30Min_Db',
+    '60Min'  : 'VnTrader_60Min_Db',
+    '120Min' : 'VnTrader_120Min_Db',
+    '240Min' : 'VnTrader_240Min_Db',
+    'Daily'  : 'VnTrader_Daily_Db',
+    'Weekly' : 'VnTrader_Weekly_Db',
     'Monthly': 'VnTrader_Monthly_Db',
 }
 
@@ -103,8 +103,12 @@ def make_csv_files():
 
                         # 判定是否是前一日数据
                         if yesterday_start <= dt.time(*map(int, time.split(':'))) <= yesterday_end:
-                            yesterday_date = dt.date(*map(int, date.split('/'))) - dt.timedelta(days=1)
-                            date = yesterday_date.strftime('%Y/%m/%d')
+                            yesterday_date = dt.date(*map(int, date.split('/')))
+                            while True:  # 寻找前一个工作日
+                                yesterday_date -= dt.timedelta(days=1)
+                                if yesterday_date.weekday() < 5:
+                                    date = yesterday_date.strftime('%Y/%m/%d')
+                                    break
 
                         csv_file.write(','.join([date, time] + map(lambda c: str(c.value), row[1:6])) + '\n')
 

@@ -42,6 +42,7 @@ offsetMapReverse = {v:k for k,v in offsetMap.items()}
 
 # 交易所类型映射
 exchangeMap = {}
+exchangeMap['INE'] = 'INE'
 exchangeMap[EXCHANGE_CFFEX] = 'CFFEX'
 exchangeMap[EXCHANGE_SHFE] = 'SHFE'
 exchangeMap[EXCHANGE_CZCE] = 'CZCE'
