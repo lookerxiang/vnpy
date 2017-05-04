@@ -297,15 +297,15 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=4, longPeriod=20, trailingStop=5.0,
-                             stopLoss=8.0, RaviLimit=0.3, klinePeriod=dre.ctaKLine.PERIOD_1DAY))  # 初始化策略
+                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=1.0,
+                             stopLoss=1.0, RaviLimit=0.2, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
     engine.setStartDate('20090327', initDays=Strategy65SMA3CCRefine.bufferSize * 2)
-    engine.setEndDate('20170222')
+    engine.setEndDate('20131125')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     engine.setSize(10)  # 表示一手合约的数量，比如一手豆粕为10t，则size为10
 
     # 设置使用的历史数据库
-    engine.setDatabase(DAILY_DB_NAME, engine.strategy.vtSymbol)
+    engine.setDatabase(MINUTE_DB_NAME, engine.strategy.vtSymbol)
     # 设置策略所需的均线周期，便于ctaBacktesting中画均线
     # engine.setMaPeriod([5, 14])
 
@@ -327,14 +327,14 @@ if __name__ == '__main__':
     # # 跑优化---------------------------------------------------------------------------------
     # setting = OptimizationSetting()                 # 新建一个优化任务设置对象
     # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    # setting.addParameter('shortPeriod', 4, 4, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
-    # setting.addParameter('longPeriod', 20, 20, 5)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    # setting.addParameter('trailingStop', 8.0, 8.0, 1.0)            # 增加一个固定数值的参数
-    # setting.addParameter('stopLoss', 1.0, 10.0, 1.0)  # 增加一个固定数值的参数
-    # setting.addParameter('RaviLimit', 0.3, 0.3, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('shortPeriod', 6, 6, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    # setting.addParameter('longPeriod', 55, 55, 1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
+    # setting.addParameter('trailingStop', 1.0, 1.0, 0.5)            # 增加一个固定数值的参数
+    # setting.addParameter('stopLoss', 1.0, 1.0, 1.0)  # 增加一个固定数值的参数
+    # setting.addParameter('RaviLimit', 0.1, 0.1, 0.1)            # 增加一个固定数值的参数
     # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
     # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
-    # setting.addParameter('klinePeriod', dre.ctaKLine.PERIOD_1DAY)            # 增加一个固定数值的参数
+    # setting.addParameter('klinePeriod', dre.ctaKLine.PERIOD_30MIN)            # 增加一个固定数值的参数
     #
     #
     #
