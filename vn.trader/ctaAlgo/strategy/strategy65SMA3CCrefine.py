@@ -297,15 +297,15 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=1.0,
-                             stopLoss=1.0, RaviLimit=0.2, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
+                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=3.1,
+                             stopLoss=0.8, RaviLimit=0.5, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20090327', initDays=Strategy65SMA3CCRefine.bufferSize * 2)
-    engine.setEndDate('20131125')
+    engine.setStartDate('20090327', initDays=10)
+    engine.setEndDate('20131120')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
@@ -329,9 +329,9 @@ if __name__ == '__main__':
     # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
     # setting.addParameter('shortPeriod', 6, 6, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
     # setting.addParameter('longPeriod', 55, 55, 1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    # setting.addParameter('trailingStop', 1.0, 1.0, 0.5)            # 增加一个固定数值的参数
-    # setting.addParameter('stopLoss', 1.0, 1.0, 1.0)  # 增加一个固定数值的参数
-    # setting.addParameter('RaviLimit', 0.1, 0.1, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('trailingStop', 3.1, 3.1, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('stopLoss', 0.8, 0.8, 0.1)  # 增加一个固定数值的参数
+    # setting.addParameter('RaviLimit', 0.5, 0.5, 0.1)            # 增加一个固定数值的参数
     # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
     # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
     # setting.addParameter('klinePeriod', dre.ctaKLine.PERIOD_30MIN)            # 增加一个固定数值的参数
