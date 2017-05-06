@@ -28,6 +28,8 @@ class KkStrategy(CtaTemplate):
     kkLength = 11           # 计算通道中值的窗口数
     kkDev = 1.6             # 计算通道宽度的偏差
     trailingPrcnt = 7.0     # 移动止损
+    stopLoss = 0.8  # 百分比固定止损，必须用浮点数
+    RaviLimit = 0.3  # 过滤器
     initDays = 10           # 初始化数据所用的天数
     fixedSize = 1           # 每次交易的数量
 
@@ -47,7 +49,11 @@ class KkStrategy(CtaTemplate):
     kkUp = 0                            # KK通道上轨
     kkDown = 0                          # KK通道下轨
     intraTradeHigh = 0                  # 持仓期内的最高点
-    intraTradeLow = 0                   # 持仓期内的最低点
+    intraTradeLow = 0x7FFFFFFFF                   # 持仓期内的最低点
+
+    longPrice = 0  # 最新开多仓价格
+    shortPrice = 0x7FFFFFFFF  # 最新开空仓价格
+    Ravi = 0
 
     buyOrderID = None                   # OCO委托买入开仓的委托号
     shortOrderID = None                 # OCO委托卖出开仓的委托号
@@ -60,7 +66,9 @@ class KkStrategy(CtaTemplate):
                  'vtSymbol',
                  'kkLength',
                  'kkDev',
-                 'trailingPrcnt']
+                 'trailingPrcnt',
+                 'stopLoss',
+                 'RaviLimit']
 
     # 变量列表，保存了变量的名称
     varList = ['inited',
@@ -205,31 +213,39 @@ class KkStrategy(CtaTemplate):
         self.kkMid = talib.MA(self.closeArray, self.kkLength)[-1]
         self.kkUp = self.kkMid + self.atrValue * self.kkDev
         self.kkDown = self.kkMid - self.atrValue * self.kkDev
-
+        self.Ravi = (self.kkUp - self.kkDown)/self.kkMid*100
+        # print self.Ravi
         # 判断是否要进行交易
 
         # 当前无仓位，发送OCO开仓委托
         if self.pos == 0:
             self.intraTradeHigh = bar.high
             self.intraTradeLow = bar.low
-            self.sendOcoOrder(self.kkUp, self.kkDown, self.fixedSize)
+            if self.Ravi > self.RaviLimit:
+                self.sendOcoOrder(self.kkUp, self.kkDown, self.fixedSize)
+
+            self.longPrice = self.kkUp  # 记录开仓价格，用于固定止损
+            self.shortPrice = self.kkDown  # 记录开仓价格，用于固定止损
+
 
         # 持有多头仓位
         elif self.pos > 0:
             self.intraTradeHigh = max(self.intraTradeHigh, bar.high)
             self.intraTradeLow = bar.low
-
-            orderID = self.sell(self.intraTradeHigh*(1-self.trailingPrcnt/100),
-                                abs(self.pos), True)
+            longStop = max(self.intraTradeHigh*(1-self.trailingPrcnt/100),self.longPrice * ( 1 - self.stopLoss/100.0))
+            # if self.closeArray[-1] < self.kkMid-2.0:
+            #     longStop = max(bar.close, longStop)  # 跌破中轨平仓
+            orderID = self.sell(longStop,abs(self.pos), True)
             self.orderList.append(orderID)
 
         # 持有空头仓位
         elif self.pos < 0:
             self.intraTradeHigh = bar.high
             self.intraTradeLow = min(self.intraTradeLow, bar.low)
-
-            orderID = self.cover(self.intraTradeLow*(1+self.trailingPrcnt/100),
-                               abs(self.pos), True)
+            shortStop = min(self.intraTradeLow*(1+self.trailingPrcnt/100),self.shortPrice * ( 1 + self.stopLoss/100.0))
+            # if self.closeArray[-1] > self.kkMid+2.0:
+            #     shortStop = min(bar.close, shortStop)  # 突破中轨平仓
+            orderID = self.cover(shortStop,abs(self.pos), True)
             self.orderList.append(orderID)
 
         # 发出状态更新事件
@@ -292,19 +308,19 @@ if __name__ == '__main__':
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20151120')
+    engine.setStartDate('20140212')
 
     # 设置产品相关参数
     engine.setSlippage(0.2)     # 股指1跳
-    engine.setRate(0.3/10000)   # 万0.3
+    engine.setRate(1.0/10000)   # 万0.3
     engine.setSize(10)         # 股指合约大小
     #engine.setPriceTick(0.2)    # 股指最小价格变动
 
     # 设置使用的历史数据库
-    engine.setDatabase(MINUTE_DB_NAME, 'RB0000')
+    engine.setDatabase(MINUTE_DB_NAME, 'C0000')
 
     # 在引擎中创建策略对象
-    d = {}
+    d = dict(kkLength=14, kkDev=2.0, trailingPrcnt=4.5,stopLoss=1.8, RaviLimit=0.5)
     engine.initStrategy(KkStrategy, d)
 
     # 开始跑回测
@@ -318,19 +334,15 @@ if __name__ == '__main__':
     # # 跑优化---------------------------------------------------------------------------------
     # setting = OptimizationSetting()                 # 新建一个优化任务设置对象
     # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    # # setting.addParameter('shortPeriod', 6, 6, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
-    # # setting.addParameter('longPeriod', 55, 55, 1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    # setting.addParameter('trailingPrcnt', 3.0, 8.0, 0.5)            # 增加一个固定数值的参数
-    # # setting.addParameter('stopLoss', 0.3, 3.1, 0.1)  # 增加一个固定数值的参数
-    # # setting.addParameter('RaviLimit', 0.5, 0.5, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('kkLength', 14, 14, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    # setting.addParameter('kkDev', 2.0, 2.0, 0.1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
+    # setting.addParameter('trailingPrcnt', 4.5, 4.5, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('stopLoss', 1.8, 1.8, 0.1)  # 增加一个固定数值的参数
+    # setting.addParameter('RaviLimit', 0.5, 0.5, 0.1)            # 增加一个固定数值的参数
     # # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
     # # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
     # # setting.addParameter('klinePeriod', dre.ctaKLine.PERIOD_30MIN)            # 增加一个固定数值的参数
-    #
-    #
-    #
-    #
-    #
+
     # # 性能测试环境：I7-3770，主频3.4G, 8核心，内存16G，Windows 7 专业版
     # # 测试时还跑着一堆其他的程序，性能仅供参考
     # import time
