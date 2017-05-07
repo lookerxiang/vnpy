@@ -21,11 +21,13 @@ class Strategy65SMA3CCRefine(CtaTemplate):
     author = u'向律楷'
 
     # 策略参数
-    trailingPercent = 8.0  # 百分比移动止损，必须用浮点数
+    trailingStop = 8.0  # 百分比移动止损，必须用浮点数
+    stopLoss = 8.0  # 百分比固定止损，必须用浮点数
     # period = [5, 14]  # EMA周期
-    shortPeriod = 4
-    longPeriod = 20
-    klinePeriod = dre.ctaKLine.PERIOD_1MIN
+    shortPeriod = 4  #短周期
+    longPeriod = 20  #长周期
+    RaviLimit = 0.3  # 过滤器
+    klinePeriod = dre.ctaKLine.PERIOD_1MIN #所用bar的周期
 
     # 策略变量
     bar = None  # K线对象
@@ -37,6 +39,8 @@ class Strategy65SMA3CCRefine(CtaTemplate):
 
     intraTradeHigh = 0  # 移动止损用的持仓期内最高价
     intraTradeLow = 0x7FFFFFFFF  # 移动止损用的持仓期内最低价
+    longPrice = 0  # 最新开多仓价格
+    shortPrice = 0x7FFFFFFFF  # 最新开空仓价格
 
     highArray = np.zeros(bufferSize)  # K线最高价的数组
     lowArray = np.zeros(bufferSize)  # K线最低价的数组
@@ -51,7 +55,6 @@ class Strategy65SMA3CCRefine(CtaTemplate):
     longArray = np.zeros(bufferSize)  # 短期EMA数组
 
     Ravi = 0
-    RaviLimit = 0.0  # 目前已缓存的短期EMA计数
     RaviList = []  # 短期EMA数组
 
     orderList = []  # 保存委托代码的列表
@@ -65,7 +68,8 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                  'className',
                  'author',
                  'vtSymbol',
-                 'trailingPercent',
+                 'trailingStop',
+                 'stopLoss',
                  'shortPeriod',
                  'longPeriod',
                  'RaviLimit',
@@ -223,6 +227,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                     if self.Ravi > self.RaviLimit:
                         orderID = self.buy(bar.close + 5, 1)
                         self.orderList.append(orderID)
+                        self.longPrice = bar.close #记录开仓价格，用于固定止损
 
             # 长短均线均向下，形成死叉或股价下穿短期均线卖出开空仓
             elif self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2] and \
@@ -231,6 +236,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                     if self.Ravi > self.RaviLimit:
                         orderID = self.short(bar.close - 5, 1)
                         self.orderList.append(orderID)
+                        self.shortPrice = bar.close #记录开仓价格，用于固定止损
 
         elif self.pos > 0:  # 卖出平仓
             # 计算多头持有期内的最高价，以及重置最低价
@@ -238,7 +244,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             self.intraTradeLow = bar.low
 
             # 计算多头移动止损
-            longStop = self.intraTradeHigh * (1 - self.trailingPercent / 100.0)
+            longStop = max(self.intraTradeHigh * (1 - self.trailingStop / 100.0), self.longPrice * ( 1 - self.stopLoss/100.0))
 
             # 计算突破均线止损
             if self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2]:
@@ -253,11 +259,11 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             self.intraTradeLow = min(self.intraTradeLow, bar.low)
             self.intraTradeHigh = bar.high
             # 计算空头移动止损
-            longStop = self.intraTradeLow * (1 + self.trailingPercent / 100.0)
+            shortStop = min(self.intraTradeLow * (1 + self.trailingStop / 100.0), self.shortPrice * ( 1 + self.stopLoss/100.0))
             # 计算突破均线止损
             if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2]:
-                longStop = min(bar.close, longStop)
-            orderIDs = self.cover(longStop, 1, stop=True)
+                shortStop = min(bar.close, shortStop)
+            orderIDs = self.cover(shortStop, 1, stop=True)
             self.orderList.extend(orderIDs)
 
         # 发出状态更新事件
@@ -291,15 +297,15 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=9, longPeriod=55, trailingPercent=7.0,
-                             RaviLimit=0.8, klinePeriod=dre.ctaKLine.PERIOD_1DAY))  # 初始化策略
+                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=3.1,
+                             stopLoss=0.8, RaviLimit=0.5, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20090327', initDays=Strategy65SMA3CCRefine.bufferSize * 2)
-    engine.setEndDate('20170222')
+    engine.setStartDate('20090327', initDays=10)
+    engine.setEndDate('20131120')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
@@ -307,7 +313,7 @@ if __name__ == '__main__':
     engine.setSize(10)  # 表示一手合约的数量，比如一手豆粕为10t，则size为10
 
     # 设置使用的历史数据库
-    engine.setDatabase(DAILY_DB_NAME, engine.strategy.vtSymbol)
+    engine.setDatabase(MINUTE_DB_NAME, engine.strategy.vtSymbol)
     # 设置策略所需的均线周期，便于ctaBacktesting中画均线
     # engine.setMaPeriod([5, 14])
 
@@ -321,12 +327,16 @@ if __name__ == '__main__':
     # # 跑优化---------------------------------------------------------------------------------
     # setting = OptimizationSetting()                 # 新建一个优化任务设置对象
     # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    # setting.addParameter('shortPeriod', 9, 9, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
-    # setting.addParameter('longPeriod', 15, 60, 5)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    # setting.addParameter('trailingPercent', 7.0, 7.0, 1.0)            # 增加一个固定数值的参数
-    # setting.addParameter('RaviLimit', 0.8, 0.8, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('shortPeriod', 6, 6, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    # setting.addParameter('longPeriod', 55, 55, 1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
+    # setting.addParameter('trailingStop', 3.1, 3.1, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('stopLoss', 0.8, 0.8, 0.1)  # 增加一个固定数值的参数
+    # setting.addParameter('RaviLimit', 0.5, 0.5, 0.1)            # 增加一个固定数值的参数
     # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
-    # setting.addParameter('vtSymbol', 'CU0000')            # 增加一个固定数值的参数
+    # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
+    # setting.addParameter('klinePeriod', dre.ctaKLine.PERIOD_30MIN)            # 增加一个固定数值的参数
+    #
+    #
     #
     #
     #
@@ -339,6 +349,6 @@ if __name__ == '__main__':
     # # engine.runOptimization(StrategyDoubleSMA, setting)
     #
     # # 多进程优化，耗时：89秒
-    # engine.runParallelOptimization(StrategyDoubleSMA, setting)
+    # engine.runParallelOptimization(Strategy65SMA3CCRefine, setting)
     #
     # print u'耗时：%s' %(time.time()-start)
