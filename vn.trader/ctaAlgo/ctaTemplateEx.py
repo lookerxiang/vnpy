@@ -54,12 +54,16 @@ class CtaTemplate(CtaTemplateOrginal):
         # 仓位获取不能在onInit时候做，因为此时ctaEngine尚未将vtSymbol加入到tickStrategyDict中，posBufferDict没有对应数据
         if not self.inBacktesting:
             # 使用循环确保获取持仓缓存数据
-            while True:
+            count_down = 5
+            while count_down > 0:
                 posBuffer = self.ctaEngine.posBufferDict.get(self.vtSymbol, None)
                 if posBuffer:
                     self.pos = posBuffer.longPosition - posBuffer.shortPosition
                     break
                 time.sleep(1)
+                count_down -= 1
+            else:
+                self.pos = 0
 
     def sell(self, price, volume, stop=False):
         """卖平"""
