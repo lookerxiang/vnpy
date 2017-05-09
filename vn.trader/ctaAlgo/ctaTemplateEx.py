@@ -161,7 +161,10 @@ class CtaTemplate(CtaTemplateOrginal):
                 return self.backtestingDbCache[max(0, idx + 1 - count):idx + 1]
 
         # 缓存中未找到对应数据则从数据库中获取
-        col = self.ctaEngine.dbClient[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
+        db_client = (self.ctaEngine.dbClient
+                     if hasattr(self.ctaEngine, "dbClient") else
+                     self.ctaEngine.mainEngine.dbClient)
+        col = db_client[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
         klines = list(col.find(filter={'datetime': {'$lte': from_datetime}},
                                projection={'_id': False},
                                limit=count,
@@ -205,3 +208,13 @@ class CtaTemplate(CtaTemplateOrginal):
                     self.vtSymbol, {period: self.onBar for period in periods})
         else:  # 非实盘直接忽略
             pass
+
+    def startInitData(self, cacheSize):
+        if not self.inBacktesting:
+            self.inBacktesting = True
+            self.backtestingDbCache = []
+            self.backtestingDbCacheSize = cacheSize
+            self.backtestingDbCacheReachOldest = False
+
+    def endInitData(self):
+        self.inBacktesting = False
