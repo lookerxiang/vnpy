@@ -152,7 +152,7 @@ class CtaTemplate(CtaTemplateOrginal):
         # 实盘使用K线生成器获取
         if not self.inBacktesting and not self.isHistoryData:
             return self.ctaEngine.mainEngine.drEngine.kline_gen.get_last_klines(
-                    symbol, count, period, only_completed, newest_tick_datetime)
+                    symbol, count, period, only_completed, from_datetime + dt.timedelta(seconds=30))
 
         # 非实盘首先尝试从缓存中获取
         idx = bisect.bisect_left(map(lambda b: b.datetime, self.backtestingDbCache), from_datetime)

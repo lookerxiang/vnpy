@@ -104,9 +104,9 @@ class Strategy65SMA3CCRefine(CtaTemplate):
 
         # 载入历史数据，并采用回放计算的方式初始化策略数值
         startDatetime = self.ctaEngine.strategyStartDate if self.inBacktesting else dt.datetime.now()
-        initData = self.getLastKlines(self.longPeriod, period=self.klinePeriod, from_datetime=startDatetime)
 
         self.startHistoryData(self.bufferSize)
+        initData = self.getLastKlines(self.longPeriod, period=self.klinePeriod, from_datetime=startDatetime)
         for bar in initData:
             self.updateData(bar)
         self.endHistoryData()
