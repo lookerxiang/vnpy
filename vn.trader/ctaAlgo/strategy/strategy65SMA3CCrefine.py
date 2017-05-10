@@ -106,10 +106,10 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         startDatetime = self.ctaEngine.strategyStartDate if self.inBacktesting else dt.datetime.now()
         initData = self.getLastKlines(self.longPeriod, period=self.klinePeriod, from_datetime=startDatetime)
 
-        self.startInitData(self.bufferSize)
+        self.startHistoryData(self.bufferSize)
         for bar in initData:
             self.updateData(bar)
-        self.endInitData()
+        self.endHistoryData()
 
         self.putEvent()
 

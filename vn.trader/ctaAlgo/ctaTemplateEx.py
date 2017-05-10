@@ -33,6 +33,9 @@ class CtaTemplate(CtaTemplateOrginal):
     # 由回测引擎启动（此时将无法获取实时仓位等远端信息）
     inBacktesting = False
 
+    # 访问历史数据时不使用K线引擎（K线引擎始终获取最新的K线数据）
+    isHistoryData = False
+
     def __init__(self, ctaEngine, setting):
         """Constructor"""
         super(CtaTemplate, self).__init__(ctaEngine, setting)
@@ -147,7 +150,7 @@ class CtaTemplate(CtaTemplateOrginal):
         symbol = symbol if symbol else self.vtSymbol.upper()
 
         # 实盘使用K线生成器获取
-        if not self.inBacktesting:
+        if not self.inBacktesting and not self.isHistoryData:
             return self.ctaEngine.mainEngine.drEngine.kline_gen.get_last_klines(
                     symbol, count, period, only_completed, newest_tick_datetime)
 
@@ -209,12 +212,12 @@ class CtaTemplate(CtaTemplateOrginal):
         else:  # 非实盘直接忽略
             pass
 
-    def startInitData(self, cacheSize):
+    def startHistoryData(self, cacheSize):
         if not self.inBacktesting:
-            self.inBacktesting = True
+            self.isHistoryData = True
             self.backtestingDbCache = []
             self.backtestingDbCacheSize = cacheSize
             self.backtestingDbCacheReachOldest = False
 
-    def endInitData(self):
-        self.inBacktesting = False
+    def endHistoryData(self):
+        self.isHistoryData = False
