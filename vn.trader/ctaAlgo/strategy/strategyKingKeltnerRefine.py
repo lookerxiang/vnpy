@@ -27,9 +27,10 @@ class KkStrategy(CtaTemplate):
     # 策略参数
     kkLength = 11           # 计算通道中值的窗口数
     kkDev = 1.6             # 计算通道宽度的偏差
-    trailingPrcnt = 7.0     # 移动止损
+    trailingPrcnt = 3.0     # 移动止损
     stopLoss = 0.8  # 百分比固定止损，必须用浮点数
     RaviLimit = 0.3  # 过滤器
+    profitTarget = 4.0
     initDays = 10           # 初始化数据所用的天数
     fixedSize = 1           # 每次交易的数量
 
@@ -68,7 +69,8 @@ class KkStrategy(CtaTemplate):
                  'kkDev',
                  'trailingPrcnt',
                  'stopLoss',
-                 'RaviLimit']
+                 'RaviLimit',
+                 'profitTarget']
 
     # 变量列表，保存了变量的名称
     varList = ['inited',
@@ -237,6 +239,10 @@ class KkStrategy(CtaTemplate):
             #     longStop = max(bar.close, longStop)  # 跌破中轨平仓
             orderID = self.sell(longStop,abs(self.pos), True)
             self.orderList.append(orderID)
+            #发止盈单
+            if bar.close>self.longPrice*(1+self.profitTarget/100.0):
+                orderID = self.sell(bar.close-5, abs(self.pos), True)
+                self.orderList.append(orderID)
 
         # 持有空头仓位
         elif self.pos < 0:
@@ -247,6 +253,10 @@ class KkStrategy(CtaTemplate):
             #     shortStop = min(bar.close, shortStop)  # 突破中轨平仓
             orderID = self.cover(shortStop,abs(self.pos), True)
             self.orderList.append(orderID)
+            # 发止盈单
+            if bar.close<self.shortPrice * (1 - self.profitTarget / 100.0):
+                orderID = self.cover(bar.close+5, abs(self.pos), True)
+                self.orderList.append(orderID)
 
         # 发出状态更新事件
         self.putEvent()
@@ -308,7 +318,7 @@ if __name__ == '__main__':
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20140212')
+    engine.setStartDate('20151120')
 
     # 设置产品相关参数
     engine.setSlippage(0.2)     # 股指1跳
@@ -317,10 +327,10 @@ if __name__ == '__main__':
     #engine.setPriceTick(0.2)    # 股指最小价格变动
 
     # 设置使用的历史数据库
-    engine.setDatabase(MINUTE_DB_NAME, 'C0000')
+    engine.setDatabase(MINUTE_DB_NAME, 'RB0000')
 
     # 在引擎中创建策略对象
-    d = dict(kkLength=14, kkDev=2.0, trailingPrcnt=4.5,stopLoss=1.8, RaviLimit=0.5)
+    d = dict(kkLength=11, kkDev=2.0, trailingPrcnt=7.0,stopLoss=0.8, RaviLimit=0.5, profitTarget=35.0)
     engine.initStrategy(KkStrategy, d)
 
     # 开始跑回测
@@ -334,15 +344,17 @@ if __name__ == '__main__':
     # # 跑优化---------------------------------------------------------------------------------
     # setting = OptimizationSetting()                 # 新建一个优化任务设置对象
     # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    # setting.addParameter('kkLength', 14, 14, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    # setting.addParameter('kkLength', 11, 11, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
     # setting.addParameter('kkDev', 2.0, 2.0, 0.1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    # setting.addParameter('trailingPrcnt', 4.5, 4.5, 0.1)            # 增加一个固定数值的参数
-    # setting.addParameter('stopLoss', 1.8, 1.8, 0.1)  # 增加一个固定数值的参数
+    # setting.addParameter('trailingPrcnt', 7.0, 7.0, 1.0)            # 增加一个固定数值的参数
+    # setting.addParameter('stopLoss', 0.8, 0.8, 0.1)  # 增加一个固定数值的参数
     # setting.addParameter('RaviLimit', 0.5, 0.5, 0.1)            # 增加一个固定数值的参数
+    # setting.addParameter('profitTarget', 30.0, 50.0, 1.0)  # 增加一个固定数值的参数
+    #
     # # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
     # # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
     # # setting.addParameter('klinePeriod', dre.ctaKLine.PERIOD_30MIN)            # 增加一个固定数值的参数
-
+    #
     # # 性能测试环境：I7-3770，主频3.4G, 8核心，内存16G，Windows 7 专业版
     # # 测试时还跑着一堆其他的程序，性能仅供参考
     # import time
