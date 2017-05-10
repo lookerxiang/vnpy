@@ -24,10 +24,10 @@ class Strategy65SMA3CCRefine(CtaTemplate):
     trailingStop = 8.0  # 百分比移动止损，必须用浮点数
     stopLoss = 8.0  # 百分比固定止损，必须用浮点数
     # period = [5, 14]  # EMA周期
-    shortPeriod = 4  #短周期
-    longPeriod = 20  #长周期
+    shortPeriod = 4  # 短周期
+    longPeriod = 20  # 长周期
     RaviLimit = 0.3  # 过滤器
-    klinePeriod = dre.ctaKLine.PERIOD_1MIN #所用bar的周期
+    klinePeriod = dre.ctaKLine.PERIOD_1MIN  # 所用bar的周期
 
     # 策略变量
     bar = None  # K线对象
@@ -104,10 +104,12 @@ class Strategy65SMA3CCRefine(CtaTemplate):
 
         # 载入历史数据，并采用回放计算的方式初始化策略数值
         startDatetime = self.ctaEngine.strategyStartDate if self.inBacktesting else dt.datetime.now()
-        initData = self.getLastKlines(self.longPeriod, period=self.klinePeriod, from_datetime=startDatetime)
 
+        self.startHistoryData(self.bufferSize)
+        initData = self.getLastKlines(self.longPeriod, period=self.klinePeriod, from_datetime=startDatetime)
         for bar in initData:
             self.updateData(bar)
+        self.endHistoryData()
 
         self.putEvent()
 
@@ -178,6 +180,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         lastKLines = self.getLastKlines(self.bufferSize, self.klinePeriod, from_datetime=bar.datetime)
         if len(lastKLines) == 0:
             return
+        print bar.datetime, lastKLines[-1].datetime
 
         # 将历史K线转换为计算所需数据数组
         self.highArray[-len(lastKLines):] = [b.high for b in lastKLines]
@@ -227,7 +230,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                     if self.Ravi > self.RaviLimit:
                         orderID = self.buy(bar.close + 5, 1)
                         self.orderList.append(orderID)
-                        self.longPrice = bar.close #记录开仓价格，用于固定止损
+                        self.longPrice = bar.close  # 记录开仓价格，用于固定止损
 
             # 长短均线均向下，形成死叉或股价下穿短期均线卖出开空仓
             elif self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2] and \
@@ -236,7 +239,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                     if self.Ravi > self.RaviLimit:
                         orderID = self.short(bar.close - 5, 1)
                         self.orderList.append(orderID)
-                        self.shortPrice = bar.close #记录开仓价格，用于固定止损
+                        self.shortPrice = bar.close  # 记录开仓价格，用于固定止损
 
         elif self.pos > 0:  # 卖出平仓
             # 计算多头持有期内的最高价，以及重置最低价
@@ -244,7 +247,8 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             self.intraTradeLow = bar.low
 
             # 计算多头移动止损
-            longStop = max(self.intraTradeHigh * (1 - self.trailingStop / 100.0), self.longPrice * ( 1 - self.stopLoss/100.0))
+            longStop = max(self.intraTradeHigh * (1 - self.trailingStop / 100.0),
+                           self.longPrice * (1 - self.stopLoss / 100.0))
 
             # 计算突破均线止损
             if self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2]:
@@ -259,7 +263,8 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             self.intraTradeLow = min(self.intraTradeLow, bar.low)
             self.intraTradeHigh = bar.high
             # 计算空头移动止损
-            shortStop = min(self.intraTradeLow * (1 + self.trailingStop / 100.0), self.shortPrice * ( 1 + self.stopLoss/100.0))
+            shortStop = min(self.intraTradeLow * (1 + self.trailingStop / 100.0),
+                            self.shortPrice * (1 + self.stopLoss / 100.0))
             # 计算突破均线止损
             if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2]:
                 shortStop = min(bar.close, shortStop)
