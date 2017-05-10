@@ -33,6 +33,9 @@ class CtaTemplate(CtaTemplateOrginal):
     # 由回测引擎启动（此时将无法获取实时仓位等远端信息）
     inBacktesting = False
 
+    # 访问历史数据时不使用K线引擎（K线引擎始终获取最新的K线数据）
+    isHistoryData = False
+
     def __init__(self, ctaEngine, setting):
         """Constructor"""
         super(CtaTemplate, self).__init__(ctaEngine, setting)
@@ -54,12 +57,16 @@ class CtaTemplate(CtaTemplateOrginal):
         # 仓位获取不能在onInit时候做，因为此时ctaEngine尚未将vtSymbol加入到tickStrategyDict中，posBufferDict没有对应数据
         if not self.inBacktesting:
             # 使用循环确保获取持仓缓存数据
-            while True:
+            count_down = 5
+            while count_down > 0:
                 posBuffer = self.ctaEngine.posBufferDict.get(self.vtSymbol, None)
                 if posBuffer:
                     self.pos = posBuffer.longPosition - posBuffer.shortPosition
                     break
                 time.sleep(1)
+                count_down -= 1
+            else:
+                self.pos = 0
 
     def sell(self, price, volume, stop=False):
         """卖平"""
@@ -143,9 +150,9 @@ class CtaTemplate(CtaTemplateOrginal):
         symbol = symbol if symbol else self.vtSymbol.upper()
 
         # 实盘使用K线生成器获取
-        if not self.inBacktesting:
+        if not self.inBacktesting and not self.isHistoryData:
             return self.ctaEngine.mainEngine.drEngine.kline_gen.get_last_klines(
-                    symbol, count, period, only_completed, newest_tick_datetime)
+                    symbol, count, period, only_completed, from_datetime + dt.timedelta(seconds=30))
 
         # 非实盘首先尝试从缓存中获取
         idx = bisect.bisect_left(map(lambda b: b.datetime, self.backtestingDbCache), from_datetime)
@@ -157,7 +164,10 @@ class CtaTemplate(CtaTemplateOrginal):
                 return self.backtestingDbCache[max(0, idx + 1 - count):idx + 1]
 
         # 缓存中未找到对应数据则从数据库中获取
-        col = self.ctaEngine.dbClient[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
+        db_client = (self.ctaEngine.dbClient
+                     if hasattr(self.ctaEngine, "dbClient") else
+                     self.ctaEngine.mainEngine.dbClient)
+        col = db_client[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
         klines = list(col.find(filter={'datetime': {'$lte': from_datetime}},
                                projection={'_id': False},
                                limit=count,
@@ -201,3 +211,13 @@ class CtaTemplate(CtaTemplateOrginal):
                     self.vtSymbol, {period: self.onBar for period in periods})
         else:  # 非实盘直接忽略
             pass
+
+    def startHistoryData(self, cacheSize):
+        if not self.inBacktesting:
+            self.isHistoryData = True
+            self.backtestingDbCache = []
+            self.backtestingDbCacheSize = cacheSize
+            self.backtestingDbCacheReachOldest = False
+
+    def endHistoryData(self):
+        self.isHistoryData = False
