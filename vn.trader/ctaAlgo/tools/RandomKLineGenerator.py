@@ -2,6 +2,7 @@
 
 import copy
 import datetime as dt
+import math
 import random
 
 import pymongo
@@ -55,20 +56,32 @@ def generate(period,
         history_datas.append(ctakline.KLine(None))
         history_datas[-1].__dict__.update(kline)
 
+    # 统计标准差
+    standard_deviation_high = math.sqrt(
+            sum(map(lambda k: (k.high - max(k.open, k.close)) ** 2, history_datas)) /
+            len(history_datas))
+    standard_deviation_low = math.sqrt(
+            sum(map(lambda k: (k.low - min(k.open, k.close)) ** 2, history_datas)) /
+            len(history_datas))
+    mean_high = sum(map(lambda k: k.high - max(k.open, k.close), history_datas)) / len(history_datas)
+    mean_low = sum(map(lambda k: min(k.open, k.close) - k.low, history_datas)) / len(history_datas)
+
     history_deltas = [
-        dict(open=history_datas[i].open - history_datas[i - 1].open,
-             high=history_datas[i].high - history_datas[i - 1].high,
-             low=history_datas[i].low - history_datas[i - 1].low,
-             close=history_datas[i].close - history_datas[i - 1].close,
-             diff=(history_datas[i].close - history_datas[i - 1].open) // 2,
-             jump=history_datas[i].open - history_datas[i - 1].close)
+        dict(diff=(history_datas[i].close - history_datas[i - 1].open) // 2,
+             jump=history_datas[i].open - history_datas[i - 1].close,
+             # open=history_datas[i].open - history_datas[i - 1].open,
+             # high=history_datas[i].high - history_datas[i - 1].high,
+             # low=history_datas[i].low - history_datas[i - 1].low,
+             # close=history_datas[i].close - history_datas[i - 1].close,
+             )
         for i in range(1, len(history_datas))]
-    history_deltas.extend([dict(open=-delta['open'],
-                                high=-delta['high'],
-                                low=-delta['low'],
-                                close=-delta['close'],
-                                diff=-delta['diff'],
-                                jump=-delta['jump'])
+    history_deltas.extend([dict(diff=-delta['diff'],
+                                jump=-delta['jump'],
+                                # open=-delta['open'],
+                                # high=-delta['high'],
+                                # low=-delta['low'],
+                                # close=-delta['close'],
+                                )
                            for delta in history_deltas])
     hl_limit = max(map(lambda k: max(k.high - k.open, k.open - k.low), history_datas))
 
@@ -86,22 +99,29 @@ def generate(period,
     while True:
         random_delta = random.choice(history_deltas)
 
-        base_kline.low, _, _, base_kline.high = sorted((base_kline.open + random_delta['open'],
-                                                        base_kline.high + random_delta['high'],
-                                                        base_kline.low + random_delta['low'],
-                                                        base_kline.close + random_delta['close']))
+        # base_kline.low, _, _, base_kline.high = sorted((base_kline.open + random_delta['open'],
+        #                                                 base_kline.high + random_delta['high'],
+        #                                                 base_kline.low + random_delta['low'],
+        #                                                 base_kline.close + random_delta['close']))
 
         base_kline.open = base_kline.close + random_delta['jump']
         base_kline.close = base_kline.open + random_delta['diff']
+        base_kline.high = round(min(hl_limit, max(0, random.normalvariate(mean_high, standard_deviation_high)))) + \
+                          max(base_kline.open, base_kline.close)
+        base_kline.low = -round(min(hl_limit, max(0, random.normalvariate(mean_low, standard_deviation_low)))) + \
+                         min(base_kline.open, base_kline.close)
 
-        base_kline.high = min(base_kline.open + hl_limit, base_kline.high)
-        base_kline.low = max(base_kline.open - hl_limit, base_kline.low)
+        assert (base_kline.low <= base_kline.open <= base_kline.high)
+        assert (base_kline.low <= base_kline.close <= base_kline.high)
 
-        base_kline.open = min(base_kline.high, base_kline.open)
-        base_kline.open = max(base_kline.low, base_kline.open)
-
-        base_kline.close = min(base_kline.high, base_kline.close)
-        base_kline.close = max(base_kline.low, base_kline.close)
+        # base_kline.high = min(base_kline.open + hl_limit, base_kline.high)
+        # base_kline.low = max(base_kline.open - hl_limit, base_kline.low)
+        #
+        # base_kline.open = min(base_kline.high, base_kline.open)
+        # base_kline.open = max(base_kline.low, base_kline.open)
+        #
+        # base_kline.close = min(base_kline.high, base_kline.close)
+        # base_kline.close = max(base_kline.low, base_kline.close)
 
         insert_cache.append(copy.deepcopy(base_kline.__dict__))
         if len(insert_cache) >= 10000:
@@ -127,4 +147,4 @@ def generate(period,
 if __name__ == '__main__':
     generate(ctakline.PERIOD_15MIN,
              '20160525', '20161206', 'RB1701',
-             '20180101', '20230101', 'RB1701TEST')
+             '20180101', '20200101', 'RB1701TEST')
