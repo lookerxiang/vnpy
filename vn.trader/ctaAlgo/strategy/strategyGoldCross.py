@@ -309,15 +309,15 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=7, longPeriod=45, trailingStop=3.0,
+                        dict(vtSymbol='RB0000TEST', inBacktesting=True, shortPeriod=7, longPeriod=45, trailingStop=3.0,
                              stopLoss=0.8, RaviLimit=0.5, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20151127', initDays=10)
-    engine.setEndDate('20170504')
+    engine.setStartDate('20180101', initDays=10)
+    engine.setEndDate('20271230')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
