@@ -224,23 +224,30 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             self.intraTradeLow = bar.low
 
             # 长短均线均向上，形成金叉或股价上穿短期均线买入开多仓。
-            if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2] and \
-                            self.closeArray[-3] > self.longArray[-3]:
-                if self.closeArray[-1] > self.shortArray[-1] > self.shortArray[-2]:
-                    if self.Ravi > self.RaviLimit:
-                        orderID = self.buy(bar.close + 5, 1)
-                        self.orderList.append(orderID)
-                        self.longPrice = bar.close  # 记录开仓价格，用于固定止损
-
-            # 长短均线均向下，形成死叉或股价下穿短期均线卖出开空仓
-            elif self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2] and \
-                            self.closeArray[-3] < self.longArray[-3]:
-                if self.closeArray[-1] < self.shortArray[-1] < self.shortArray[-2]:
-                    if self.Ravi > self.RaviLimit:
-                        orderID = self.short(bar.close - 5, 1)
-                        self.orderList.append(orderID)
-                        self.shortPrice = bar.close  # 记录开仓价格，用于固定止损
-
+            if self.shortArray[-1] > self.longArray[-1] and self.shortArray[-2] < self.longArray[-2]:#金叉买入
+                    orderID = self.buy(bar.close + 5, 1)
+                    self.orderList.append(orderID)
+                    self.longPrice = bar.close  # 记录开仓价格，用于固定止损
+            elif self.shortArray[-1] > self.shortArray[-2] > self.shortArray[-3] and \
+                            self.shortArray[-1] > self.longArray[-1] and \
+                            self.shortArray[-2] > self.longArray[-2] and \
+                            self.shortArray[-3] > self.longArray[-3]: #短期均线位于长期均线上方且连续三天向上买入
+                if self.Ravi > self.RaviLimit:
+                    orderID = self.buy(bar.close + 5, 1)
+                    self.orderList.append(orderID)
+                    self.longPrice = bar.close  # 记录开仓价格，用于固定止损
+            elif self.shortArray[-1] < self.longArray[-1] and self.shortArray[-2] > self.longArray[-2]:#s死叉卖出
+                    orderID = self.short(bar.close - 5, 1)
+                    self.orderList.append(orderID)
+                    self.shortPrice = bar.close  # 记录开仓价格，用于固定止损
+            elif self.shortArray[-1] < self.shortArray[-2] < self.shortArray[-3] and \
+                            self.shortArray[-1] < self.longArray[-1] and \
+                            self.shortArray[-2] < self.longArray[-2] and \
+                            self.shortArray[-3] < self.longArray[-3]:  # 短期均线位于长期均线下方且连续三天向下卖出
+                if self.Ravi > self.RaviLimit:
+                    orderID = self.short(bar.close - 5, 1)
+                    self.orderList.append(orderID)
+                    self.shortPrice = bar.close  # 记录开仓价格，用于固定止损
         elif self.pos > 0:  # 卖出平仓
             # 计算多头持有期内的最高价，以及重置最低价
             self.intraTradeHigh = max(self.intraTradeHigh, bar.high)
@@ -251,8 +258,8 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                            self.longPrice * (1 - self.stopLoss / 100.0))
 
             # 计算突破均线止损
-            if self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2]:
-                longStop = max(bar.close, longStop)  # 止损价格为多头移动止损和突破均线止损的最大值
+            # if self.closeArray[-1] < self.longArray[-1] and self.closeArray[-2] < self.longArray[-2]:
+            #     longStop = max(bar.close, longStop)  # 止损价格为多头移动止损和突破均线止损的最大值
 
             # 发出本地止损委托，并且把委托号记录下来，用于后续撤单
             orderIDs = self.sell(longStop, 1, stop=True)
@@ -265,9 +272,9 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             # 计算空头移动止损
             shortStop = min(self.intraTradeLow * (1 + self.trailingStop / 100.0),
                             self.shortPrice * (1 + self.stopLoss / 100.0))
-            # 计算突破均线止损
-            if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2]:
-                shortStop = min(bar.close, shortStop)
+            # # 计算突破均线止损
+            # if self.closeArray[-1] > self.longArray[-1] and self.closeArray[-2] > self.longArray[-2]:
+            #     shortStop = min(bar.close, shortStop)
             orderIDs = self.cover(shortStop, 1, stop=True)
             self.orderList.extend(orderIDs)
 
@@ -302,15 +309,15 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=3.1,
+                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=7, longPeriod=45, trailingStop=3.0,
                              stopLoss=0.8, RaviLimit=0.5, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20090327', initDays=10)
-    engine.setEndDate('20131120')
+    engine.setStartDate('20151127', initDays=10)
+    engine.setEndDate('20170504')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
@@ -332,10 +339,10 @@ if __name__ == '__main__':
     # # 跑优化---------------------------------------------------------------------------------
     # setting = OptimizationSetting()                 # 新建一个优化任务设置对象
     # setting.setOptimizeTarget('capital')            # 设置优化排序的目标是策略净盈利
-    # setting.addParameter('shortPeriod', 6, 6, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
-    # setting.addParameter('longPeriod', 55, 55, 1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
-    # setting.addParameter('trailingStop', 3.1, 3.1, 0.1)            # 增加一个固定数值的参数
-    # setting.addParameter('stopLoss', 0.8, 0.8, 0.1)  # 增加一个固定数值的参数
+    # setting.addParameter('shortPeriod', 7, 7, 1)    # 增加第一个优化参数atrLength，起始11，结束12，步进1
+    # setting.addParameter('longPeriod', 45, 45, 1)        # 增加第二个优化参数atrMa，起始20，结束30，步进1
+    # setting.addParameter('trailingStop', 3.0, 3.0, 0.5)            # 增加一个固定数值的参数
+    # setting.addParameter('stopLoss', 0.6, 0.6, 0.1)  # 增加一个固定数值的参数
     # setting.addParameter('RaviLimit', 0.5, 0.5, 0.1)            # 增加一个固定数值的参数
     # setting.addParameter('inBacktesting', True)            # 增加一个固定数值的参数
     # setting.addParameter('vtSymbol', 'RB0000')            # 增加一个固定数值的参数
