@@ -123,11 +123,49 @@ def make_csv_files():
     return csv_filenames
 
 
+def loadMcCsv(fileName, dbName, symbol):
+    """将Multicharts导出的csv格式的历史数据插入到Mongo数据库中"""
+    import csv, time, pymongo
+    from ctaBase import CtaBarData
+
+    start = time.time()
+    print u'开始读取CSV文件%s中的数据插入到%s的%s中' % (fileName, dbName, symbol)
+
+    # 锁定集合，并创建索引
+    client = pymongo.MongoClient()
+    collection = client[dbName][symbol]
+    collection.ensure_index([('datetime', pymongo.ASCENDING)], unique=True)
+
+    # 读取数据和插入到数据库
+    reader = csv.DictReader(file(fileName, 'r'))
+    for d in reader:
+        bar = CtaBarData()
+        bar.vtSymbol = symbol
+        bar.symbol = symbol
+        bar.open = float(d['Open'])
+        bar.high = float(d['High'])
+        bar.low = float(d['Low'])
+        bar.close = float(d['Close'])
+        bar.date = dt.datetime.strptime(d['Date'], '%Y/%m/%d').strftime('%Y%m%d')
+        bar.time = d['Time']
+        bar.datetime = dt.datetime.strptime(bar.date + ' ' + bar.time, '%Y%m%d %H:%M:%S')
+        bar.volume = d['TotalVolume']
+
+        # 记录close_datetime，以便未完成的K线可以继续更新
+        bar.__dict__['close_datetime'] = min(dt.datetime.now(), bar.datetime)
+
+        flt = {'datetime': bar.datetime}
+        collection.update_one(flt, {'$set': bar.__dict__}, upsert=True)
+        print bar.date, bar.time
+
+    print u'插入完毕，耗时：%s' % (time.time() - start)
+
+
 def load_csv_files(filenames):
     for name in filenames:
         try:
             symbol, time, _ = os.path.basename(name).split('_')
-            ctaHistoryData.loadMcCsv(name, DBNAME[time], symbol)
+            loadMcCsv(name, DBNAME[time], symbol)
         except:
             traceback.print_exc()
 
