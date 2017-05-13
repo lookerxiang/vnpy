@@ -95,7 +95,8 @@ def generate(period,
 
     # 清除数据库并确保索引建立（超大量数据未建立索引排序将导致失败）
     db_client[ctakline.KLINE_DB_NAMES[period]][gen_collection].delete_many({})
-    db_client[ctakline.KLINE_DB_NAMES[period]][gen_collection].create_index('datetime')
+    db_client[ctakline.KLINE_DB_NAMES[period]][gen_collection].drop_index('datetime_1')
+    db_client[ctakline.KLINE_DB_NAMES[period]][gen_collection].create_index('datetime', unique=True)
 
     # 数据库插入缓存
     insert_cache = []
