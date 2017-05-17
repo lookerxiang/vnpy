@@ -133,7 +133,10 @@ class CtaTemplate(CtaTemplateOrginal):
             # 额外记录成交的日期时间
             trade.tradeDatetime = dt.datetime.strptime(
                     ' '.join([dt.date.today().isoformat(), trade.tradeTime]), '%Y-%m-%d %H:%M:%S')
-            self.ctaEngine.insertData(STRATEGY_TRADE_DB_NAME, self.getOrderDbName(), trade)
+            # self.ctaEngine.insertData(STRATEGY_TRADE_DB_NAME, self.getOrderDbName(), trade)
+            # 解决成交信息可能重复到达的问题，用交易id和时间做键进行upsert
+            flt = dict(tradeDatetime=trade.tradeDatetime, tradeID=trade.tradeID)
+            self.ctaEngine.mainEngine.dbUpdate(STRATEGY_TRADE_DB_NAME, self.getOrderDbName(), trade.__dict__, flt, True)
 
     def getLastKlines(self, count, period=drEngineEx.ctaKLine.PERIOD_1MIN, from_datetime=None,
                       symbol=None, only_completed=True, newest_tick_datetime=None):
