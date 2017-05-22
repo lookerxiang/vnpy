@@ -149,7 +149,7 @@ def loadMcCsv(fileName, dbName, symbol):
         bar.date = dt.datetime.strptime(d['Date'], '%Y/%m/%d').strftime('%Y%m%d')
         bar.time = d['Time']
         bar.datetime = dt.datetime.strptime(bar.date + ' ' + bar.time, '%Y%m%d %H:%M:%S')
-        bar.volume = d['TotalVolume']
+        bar.volume = float(d['TotalVolume'])
 
         # 记录close_datetime，以便未完成的K线可以继续更新
         bar.__dict__['close_datetime'] = min(dt.datetime.now(), bar.datetime)
