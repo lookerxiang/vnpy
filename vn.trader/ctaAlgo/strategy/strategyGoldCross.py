@@ -15,7 +15,7 @@ from ctaAlgo.ctaTemplateEx import (CtaTemplate, STRATEGY_TRADE_DB_NAME)
 
 
 ########################################################################
-class Strategy65SMA3CCRefine(CtaTemplate):
+class StrategyGoldCross(CtaTemplate):
     """结合ATR和RSI指标的一个分钟线交易策略"""
     className = 'StrategySingleSMA'
     author = u'向律楷'
@@ -86,7 +86,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
 
     def __init__(self, ctaEngine, setting):
         """Constructor"""
-        super(Strategy65SMA3CCRefine, self).__init__(ctaEngine, setting)
+        super(StrategyGoldCross, self).__init__(ctaEngine, setting)
 
         # 注意策略类中的可变对象属性（通常是list和dict等），在策略初始化时需要重新创建，
         # 否则会出现多个策略实例之间数据共享的情况，有可能导致潜在的策略逻辑错误风险，
@@ -100,7 +100,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         self.writeCtaLog(u'双EMA演示策略初始化')
 
         # ！！手动调用父类实现
-        super(Strategy65SMA3CCRefine, self).onInit()
+        super(StrategyGoldCross, self).onInit()
 
         # 载入历史数据，并采用回放计算的方式初始化策略数值
         startDatetime = self.ctaEngine.strategyStartDate if self.inBacktesting else dt.datetime.now()
@@ -118,7 +118,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         self.writeCtaLog(u'双EMA演示策略启动')
 
         # ！！手动调用父类实现
-        super(Strategy65SMA3CCRefine, self).onStart()
+        super(StrategyGoldCross, self).onStart()
 
         # 注册K线回调
         self.registerOnbar((self.klinePeriod,))
@@ -308,7 +308,7 @@ if __name__ == '__main__':
     engine.posBufferDict = {}
 
     # 在引擎中创建策略对象
-    engine.initStrategy(Strategy65SMA3CCRefine,
+    engine.initStrategy(StrategyGoldCross,
                         dict(vtSymbol='RB0000TEST', inBacktesting=True, shortPeriod=7, longPeriod=45, trailingStop=3.0,
                              stopLoss=0.8, RaviLimit=0.5, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
