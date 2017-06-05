@@ -176,6 +176,6 @@ def generate(period,
 
 
 if __name__ == '__main__':
-    generate(ctakline.PERIOD_15MIN,
-             '20160525', '20161206', 'RB1701',
-             '20180101', '20200101', 'RB1701TEST')
+    generate(ctakline.PERIOD_30MIN,
+             '20151127', '20170504', 'RB0000',
+             '20180101', '20280101', 'RB0000TEST')

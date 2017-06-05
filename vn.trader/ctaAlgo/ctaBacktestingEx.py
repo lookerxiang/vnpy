@@ -351,15 +351,18 @@ class BacktestingEngineEx(BacktestingEngine):
         fig = plt.figure(1)
         pCapital = plt.subplot(3, 1, 1)
         pCapital.set_ylabel("capital")
-        pCapital.plot(d['capitalList'])
+        pCapital.plot(d['timeList'], d['capitalList'])
+        #画资金曲线的移动平均线
+        ts = pd.Series(d['capitalList'], index=pd.DatetimeIndex(d['timeList']))
+        ts.rolling(window=20, win_type='boxcar').mean().plot()
 
         pDD = plt.subplot(3, 1, 2)
         pDD.set_ylabel("DD")  # 最大回撤
-        pDD.bar(range(len(d['drawdownList'])), d['drawdownList'])
+        pDD.bar(d['timeList'], d['drawdownList'])
 
         pPnl = plt.subplot(3, 1, 3)
         pPnl.set_ylabel("pnl")  # 净盈亏序列
-        pPnl.hist(d['pnlList'], bins=50)
+        pPnl.hist(d['pnlList'], bins=150)
 
         # xlk自己修改---------------------------------------------------------------------------------------------------
         longtime = []  # 开多仓时间
