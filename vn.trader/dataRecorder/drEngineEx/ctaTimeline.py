@@ -105,10 +105,10 @@ NIGHTTIME_CZCE = map(lambda t: Tradetime(hour_bias_helper(t.time), t.oc), (
 # 各交易所日盘商品交易时间线，含小时偏移量
 TRADING_TIMELINES = {
     EXCHANGE_UNKNOWN: DAYTIME_DEFAULT,
-    EXCHANGE_SHFE: DAYTIME_DEFAULT,  # 上期所
-    EXCHANGE_DCE: DAYTIME_DEFAULT,  # 大商所
-    EXCHANGE_CZCE: DAYTIME_DEFAULT,  # 郑商所
-    EXCHANGE_CFFEX: dict(  # 中金所
+    EXCHANGE_SHFE   : DAYTIME_DEFAULT,  # 上期所
+    EXCHANGE_DCE    : DAYTIME_DEFAULT,  # 大商所
+    EXCHANGE_CZCE   : DAYTIME_DEFAULT,  # 郑商所
+    EXCHANGE_CFFEX  : dict(  # 中金所
             IF=DAYTIME_CFFEX_IF,  # 股指
             TB=DAYTIME_CFFEX_TB,  # 国债
     ),
@@ -130,9 +130,9 @@ NIGHTTIME_CODE_MAPPING = {
     CODE_CU: 1, CODE_AL: 1, CODE_ZN: 1, CODE_PB: 1, CODE_SN: 1, CODE_NI: 1,
     CODE_RU: 2, CODE_RB: 2, CODE_HC: 2, CODE_BU: 2,
     # 大商所
-    CODE_P: 3, CODE_J: 3, CODE_M: 3, CODE_Y: 3, CODE_A: 3, CODE_B: 3, CODE_JM: 3, CODE_I: 3,
+    CODE_P : 3, CODE_J: 3, CODE_M: 3, CODE_Y: 3, CODE_A: 3, CODE_B: 3, CODE_JM: 3, CODE_I: 3,
     # 郑商所
-    CODE_SR: 4, CODE_CF: 4, CODE_RM: 4, CODE_MAPTA: 4, CODE_ZC: 4, CODE_FG: 4, CODE_OI: 4,
+    CODE_SR: 4, CODE_CF: 4, CODE_RM: 4, CODE_MA: 4, CODE_PTA: 4, CODE_ZC: 4, CODE_FG: 4, CODE_OI: 4,
 }
 
 
