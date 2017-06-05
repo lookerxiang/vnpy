@@ -352,6 +352,9 @@ class BacktestingEngineEx(BacktestingEngine):
         pCapital = plt.subplot(3, 1, 1)
         pCapital.set_ylabel("capital")
         pCapital.plot(d['timeList'], d['capitalList'])
+        #画资金曲线的移动平均线
+        ts = pd.Series(d['capitalList'], index=pd.DatetimeIndex(d['timeList']))
+        ts.rolling(window=20, win_type='boxcar').mean().plot()
 
         pDD = plt.subplot(3, 1, 2)
         pDD.set_ylabel("DD")  # 最大回撤
