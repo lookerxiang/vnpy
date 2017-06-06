@@ -228,7 +228,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                             self.closeArray[-3] > self.longArray[-3]:
                 if self.closeArray[-1] > self.shortArray[-1] > self.shortArray[-2]:
                     if self.Ravi > self.RaviLimit:
-                        orderID = self.buy(bar.close + 5, 1)
+                        orderID = self.buy(bar.close + 2, 1)
                         self.orderList.append(orderID)
                         self.longPrice = bar.close  # 记录开仓价格，用于固定止损
 
@@ -237,7 +237,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                             self.closeArray[-3] < self.longArray[-3]:
                 if self.closeArray[-1] < self.shortArray[-1] < self.shortArray[-2]:
                     if self.Ravi > self.RaviLimit:
-                        orderID = self.short(bar.close - 5, 1)
+                        orderID = self.short(bar.close - 2, 1)
                         self.orderList.append(orderID)
                         self.shortPrice = bar.close  # 记录开仓价格，用于固定止损
 
@@ -302,15 +302,15 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='RB0000TEST', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=3.1,
+                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=3.1,
                              stopLoss=0.8, RaviLimit=0.5, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20180101', initDays=10)
-    engine.setEndDate('20271230')
+    engine.setStartDate('20151127', initDays=10)
+    engine.setEndDate('20170504')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
