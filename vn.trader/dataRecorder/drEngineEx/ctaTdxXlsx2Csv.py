@@ -5,14 +5,13 @@ import datetime as dt
 import os
 import re
 import traceback
+from collections import defaultdict
 from tkFileDialog import (
     askopenfilename,
     asksaveasfile,
 )
 
 import xlrd
-
-import ctaHistoryData
 
 FILENAME_SUFFIX = {  # 以秒单位时间差作为字典键
     60     : '_1Min_Db',
@@ -74,15 +73,25 @@ def make_csv_files():
             else:
                 raise AssertionError('No data found.')
 
-            # 读取最多前10行数，判断秒间隔
-            # TODO 该方法在30分钟、1小时等K线区间长度不固定的条件下无法正确判断
-            second_diff = max(FILENAME_SUFFIX)
-            for row_no in range(first_row, min(first_row + 9, sheet.nrows - 1)):
+            # 读取最多前20行数，判断秒间隔
+            # 通过取再现次数最多的秒间隔，可以较准确判断
+            second_diff_dict = defaultdict(int)
+            for row_no in range(first_row, min(first_row + 19, sheet.nrows - 1)):
                 datetime_1 = dt.datetime.strptime(sheet.row(row_no)[0].value.strip(), datetime_format)
                 datetime_2 = dt.datetime.strptime(sheet.row(row_no + 1)[0].value.strip(), datetime_format)
                 next_diff = int((datetime_2 - datetime_1).total_seconds())
                 if next_diff > 0:  # 防止时间翻转
-                    second_diff = min(second_diff, next_diff)
+                    second_diff_dict[next_diff] += 1
+            second_diff = max(zip(second_diff_dict.values(), second_diff_dict.keys()))[1]
+
+            # ！以下方法废除，该方法在30分钟、1小时等K线区间长度不固定的条件下无法正确判断
+            # second_diff = max(FILENAME_SUFFIX)
+            # for row_no in range(first_row, min(first_row + 9, sheet.nrows - 1)):
+            #     datetime_1 = dt.datetime.strptime(sheet.row(row_no)[0].value.strip(), datetime_format)
+            #     datetime_2 = dt.datetime.strptime(sheet.row(row_no + 1)[0].value.strip(), datetime_format)
+            #     next_diff = int((datetime_2 - datetime_1).total_seconds())
+            #     if next_diff > 0:  # 防止时间翻转
+            #         second_diff = min(second_diff, next_diff)
 
             # 打开输出文件
             csv_filename = sheet.name.split('_')[0] + FILENAME_SUFFIX.get(second_diff, '_UNKNOWN_Db')
@@ -149,7 +158,7 @@ def loadMcCsv(fileName, dbName, symbol):
         bar.date = dt.datetime.strptime(d['Date'], '%Y/%m/%d').strftime('%Y%m%d')
         bar.time = d['Time']
         bar.datetime = dt.datetime.strptime(bar.date + ' ' + bar.time, '%Y%m%d %H:%M:%S')
-        bar.volume = d['TotalVolume']
+        bar.volume = float(d['TotalVolume'])
 
         # 记录close_datetime，以便未完成的K线可以继续更新
         bar.__dict__['close_datetime'] = min(dt.datetime.now(), bar.datetime)

@@ -50,3 +50,5 @@ vn.lts/build/*
 vn.trader/ctaAlgo/data/*
 vn.trader/build/*
 vn.trader/dist/*
+/vn.trader/ctaAlgo/tools/03 qq邮箱授权码.txt
+/vn.trader/ctaAlgo/tools/mailAuthCode.json
