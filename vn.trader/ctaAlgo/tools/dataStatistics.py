@@ -98,8 +98,8 @@ class Statistics(object):
         NATR =ATR/closeArray  #相对平均真实波幅
         # 绘图
 
-
-        fig1 = plt.figure(1)
+        #真实波幅及其移动平均------
+        fig1 = plt.figure(u'历史k线及真实波幅')
         originalData = plt.subplot(3, 1, 1)
         originalData.set_ylabel("originalData")
         originalData.plot(timeArray, highArray)
@@ -107,20 +107,22 @@ class Statistics(object):
         originalData.plot(timeArray, closeArray)
 
         TRPlot = plt.subplot(3, 1, 2)
-        TRPlot.set_ylabel("TR")
+        TRPlot.set_ylabel("TR and ATR")
         TRPlot.plot(timeArray, TR,label="TR")
         TRPlot.plot(timeArray, ATR,label="ATR")
 
         TRPlot = plt.subplot(3, 1, 3)
-        TRPlot.plot(timeArray, NATR,label="NATR")
+        TRPlot.set_ylabel("NATR")
+        TRPlot.plot(timeArray, NATR,label="NTR")
 
-        fig2 = plt.figure(2)
+        #真实波幅统计------
+        fig2 = plt.figure(u'真实波幅统计')
         # # example data
         # mu = 100  # mean of distribution
         # sigma = 15  # standard deviation of distribution
         # x = mu + sigma * np.random.randn(10000)
         #
-        plt.subplot(2, 1, 1)
+        plt.subplot(2, 2, 1)
 
         num_bins = 150
         # # the histogram of the data
@@ -135,7 +137,7 @@ class Statistics(object):
         plt.ylabel('Probability')
         plt.title('Probability of TR')
 
-        plt.subplot(2, 1, 2)
+        plt.subplot(2, 2, 2)
         # # the histogram of the data
         n, bins, patches = plt.hist(np.nan_to_num(NTR), num_bins, normed=1, facecolor='blue', alpha=0.5)
         # add a 'best fit' line
@@ -147,13 +149,78 @@ class Statistics(object):
         plt.xlabel('NTR')
         plt.ylabel('Probability')
         plt.title('Probability of NTR')
-        # sns.distplot(np.nan_to_num(NTR), kde=False, fit=stats.norm)
+        # sns.distplot(np.nan_to_num(NTR), kde=False, fit=stats.expon)
+
+        plt.subplot(2, 2, 3)
+        # # the histogram of the data
+        plt.hist(np.nan_to_num(TR), num_bins, normed=1, facecolor='blue',histtype='step', cumulative=True)
+        plt.xlabel('TR')
+        plt.ylabel('cumulative probability')
+        plt.title('cumulative probability')
+
+        plt.subplot(2, 2, 4)
+        # # the histogram of the data
+        plt.hist(np.nan_to_num(NTR), num_bins, normed=1, facecolor='blue', histtype='step', cumulative=True)
+        plt.xlabel('NTR')
+        plt.ylabel('cumulative probability')
+        plt.title('cumulative probability')
 
 
+        #平均真实波幅统计------
+        fig3 = plt.figure(u'平均真实波幅统计')
+        # # example data
+        # mu = 100  # mean of distribution
+        # sigma = 15  # standard deviation of distribution
+        # x = mu + sigma * np.random.randn(10000)
+        #
+        plt.subplot(2, 2, 1)
+
+        num_bins = 150
+        # # the histogram of the data
+        n, bins, patches = plt.hist(np.nan_to_num(ATR), num_bins, normed=1, facecolor='blue', alpha=0.5)
+        # add a 'best fit' line
+        mu = np.mean(ATR[14:len(ATR)])
+        sigma = np.std(ATR[14:len(ATR)])
+        y = mlab.normpdf(bins, mu, sigma)
+        print mu, sigma
+        plt.plot(bins, y, 'r--')
+        plt.xlabel('ATR')
+        plt.ylabel('Probability')
+        plt.title('Probability of ATR')
+
+        plt.subplot(2, 2, 2)
+        # # the histogram of the data
+        n, bins, patches = plt.hist(np.nan_to_num(NATR), num_bins, normed=1, facecolor='blue', alpha=0.5)
+        # add a 'best fit' line
+        mu = np.mean(NATR[14:len(NATR)])
+        sigma = np.std(NATR[14:len(NATR)])
+        y = mlab.normpdf(bins, mu, sigma)  # 根据柱状图拟合正态分布概率密度函数
+        print mu, sigma
+        plt.plot(bins, y, 'r--')
+        plt.xlabel('NATR')
+        plt.ylabel('Probability')
+        plt.title('Probability of NATR')
+        # sns.distplot(np.nan_to_num(NTR), kde=False, fit=stats.expon)
+
+        plt.subplot(2, 2, 3)
+        # # the histogram of the data
+        plt.hist(np.nan_to_num(ATR), num_bins, normed=1, facecolor='blue', histtype='step', cumulative=True)
+        plt.xlabel('ATR')
+        plt.ylabel('cumulative probability')
+        plt.title('cumulative probability')
+
+        plt.subplot(2, 2, 4)
+        # # the histogram of the data
+        plt.hist(np.nan_to_num(NATR), num_bins, normed=1, facecolor='blue', histtype='step', cumulative=True)
+        plt.xlabel('NATR')
+        plt.ylabel('cumulative probability')
+        plt.title('cumulative probability')
         plt.show()
         # 画资金曲线的移动平均线
         # ts = pd.Series(d['capitalList'], index=pd.DatetimeIndex(d['timeList']))
         # ts.rolling(window=20, win_type='boxcar').mean().plot()
+
+
         self.output(u'统计真实波幅TR完成')
 
     # ----------------------------------------------------------------------
