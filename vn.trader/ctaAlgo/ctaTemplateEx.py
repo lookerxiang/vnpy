@@ -20,6 +20,7 @@ import pymongo
 
 from ctaAlgo.ctaBase import *
 from ctaAlgo.ctaTemplate import CtaTemplate as CtaTemplateOrginal
+from ctaAlgo.tools import tradeMail
 from dataRecorder import drEngineEx
 from vtConstant import *
 
@@ -47,6 +48,10 @@ class CtaTemplate(CtaTemplateOrginal):
                 self.backtestingDbCache = []
                 self.backtestingDbCacheSize = 10000  # TODO 参数化
                 self.backtestingDbCacheReachOldest = False
+
+        # 非回测时初始化邮件模块
+        if not self.inBacktesting:
+            self.mailer = tradeMail.Mail()
 
     def onInit(self):
         self.backtestingDbCacheReachOldest = False
@@ -137,6 +142,10 @@ class CtaTemplate(CtaTemplateOrginal):
             # 解决成交信息可能重复到达的问题，用交易id和时间做键进行upsert
             flt = dict(tradeDatetime=trade.tradeDatetime, tradeID=trade.tradeID)
             self.ctaEngine.mainEngine.dbUpdate(STRATEGY_TRADE_DB_NAME, self.getOrderDbName(), trade.__dict__, flt, True)
+            # 发送成交信息至邮箱
+            self.mailer.sendMail(self.mailer.toList,
+                                 "策略{}品种{}成交信息".format(self.__class__.__name__, self.vtSymbol),
+                                 str(trade.__dict__))
 
     def getLastKlines(self, count, period=drEngineEx.ctaKLine.PERIOD_1MIN, from_datetime=None,
                       symbol=None, only_completed=True, newest_tick_datetime=None):
