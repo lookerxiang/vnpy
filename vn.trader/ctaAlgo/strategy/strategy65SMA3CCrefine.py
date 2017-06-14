@@ -235,7 +235,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                             self.closeArray[-3] > self.longArray[-3]:
                 if self.closeArray[-1] > self.shortArray[-1] > self.shortArray[-2]:
                     if self.Ravi > self.RaviLimit:
-                        orderID = self.buy(bar.close + 5, 1)
+                        orderID = self.buy(bar.close + 2, 1)
                         self.orderList.append(orderID)
                         self.longPrice = bar.close  # 记录开仓价格，用于固定止损
 
@@ -244,7 +244,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
                             self.closeArray[-3] < self.longArray[-3]:
                 if self.closeArray[-1] < self.shortArray[-1] < self.shortArray[-2]:
                     if self.Ravi > self.RaviLimit:
-                        orderID = self.short(bar.close - 5, 1)
+                        orderID = self.short(bar.close - 2, 1)
                         self.orderList.append(orderID)
                         self.shortPrice = bar.close  # 记录开仓价格，用于固定止损
 
