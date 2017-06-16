@@ -111,6 +111,13 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             self.updateData(bar)
         self.endHistoryData()
 
+        print 'highArray  =>', self.highArray
+        print 'lowArray   =>', self.lowArray
+        print 'closeArray =>', self.closeArray
+        print 'shortArray =>', self.shortArray
+        print 'longArray  =>', self.longArray
+        print 'Ravi       =>', self.Ravi
+
         self.putEvent()
 
     def onStart(self):
@@ -180,7 +187,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         lastKLines = self.getLastKlines(self.bufferSize, self.klinePeriod, from_datetime=bar.datetime)
         if len(lastKLines) == 0:
             return
-        # print bar.datetime, lastKLines[-1].datetime
+        print 'Current bar datetime:', bar.datetime, '<=> Last kline datetime:', lastKLines[-1].datetime
 
         # 将历史K线转换为计算所需数据数组
         self.highArray[-len(lastKLines):] = [b.high for b in lastKLines]
@@ -309,8 +316,8 @@ if __name__ == '__main__':
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20151127', initDays=10)
-    engine.setEndDate('20170504')
+    engine.setStartDate('20090327', initDays=10)
+    engine.setEndDate('20131120')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
