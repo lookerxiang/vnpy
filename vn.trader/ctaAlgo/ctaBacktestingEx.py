@@ -9,6 +9,10 @@ from ctaAlgo.ctaBacktesting import *
 import numpy as np
 import pandas as pd
 from math import floor
+import matplotlib
+from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from operator import itemgetter, attrgetter
 
 
 ########################################################################
@@ -344,9 +348,9 @@ class BacktestingEngineEx(BacktestingEngine):
 
 
         # 绘图
-        import matplotlib
+        # import matplotlib
         matplotlib.use('TkAgg')
-        import matplotlib.pyplot as plt
+        # import matplotlib.pyplot as plt
 
         fig = plt.figure(1)
         pCapital = plt.subplot(3, 1, 1)
@@ -423,10 +427,93 @@ class BacktestingEngineEx(BacktestingEngine):
         plt.show()
 
     # ----------------------------------------------------------------------
-    # def setMaPeriod(self, period):
-    #     """设置均线周期"""
-    #     self.period = period  # 将周期赋值给BacktestingEngine类的实例的属性self.period
-    #     self.strategy.onMaPeriod(self.period)  # 并将其回调给strategy。目的是使得二者的周期Ma一致
+    def runParallelOptimization(self, strategyClass, optimizationSetting):
+        """并行优化参数"""
+        # 获取优化设置
+        settingList = optimizationSetting.generateSetting()
+        targetName = optimizationSetting.optimizeTarget
+
+        # 检查参数设置问题
+        if not settingList or not targetName:
+            self.output(u'优化设置有问题，请检查')
+
+        # 多进程优化，启动一个对应CPU核心数量的进程池
+        pool = multiprocessing.Pool(multiprocessing.cpu_count())
+        l = []
+
+        for setting in settingList:
+            l.append(pool.apply_async(optimize, (strategyClass, setting,
+                                                 targetName, self.mode,
+                                                 self.startDate, self.initDays, self.endDate,
+                                                 self.slippage, self.rate, self.size,
+                                                 self.dbName, self.symbol)))
+        pool.close()
+        pool.join()
+
+        # 显示结果
+        resultList = [res.get() for res in l]
+        resultList.sort(reverse=True, key=lambda result: result[1])
+        self.output('-' * 30)
+        self.output(u'优化结果：')
+        for result in resultList:
+            self.output(u'%s: %s' % (result[0], result[1]))
+
+        #输出优化结果到文件中
+        self.output(u'输出优化结果到文件中：')
+        fileName = str(self.strategy.className)+' '+str(self.symbol)+' '+str(self.startDate)+"-"+str(self.endDate)+'.txt'
+        f = open(fileName,'w')
+        for result in resultList:
+            self.outFile(f,u'%s: %s' % (result[0], result[1]))
+        f.close()
+        self.output(u'输出优化结果到文件中完成！！！')
+
+        return resultList
+
+    # 绘制三维曲面图
+    def runSurface(self, parm1,parm2, resultList):
+        """画三维曲面图"""
+        x=[]
+        y=[]
+        z=[]
+        # resultListSorted=sorted(resultList, key=itemgetter(1,2))
+        for result in resultList:
+            x.append(eval(result[0])[parm1])
+            y.append(eval(result[0])[parm2])
+            z.append(result[1])
+
+        # X, Y, Z = np.meshgrid(np.array(x), np.array(y), np.array(z))
+        x = np.array(x)
+        y = np.array(y)
+        z = np.array(z)
+        xyz=zip(x,y,z)
+        xyzSorted=sorted(xyz, key=itemgetter(0, 1))
+        xset=sorted(set(x))
+        yset=sorted(set(y))
+        # X,Y=np.meshgrid(xset,yset)
+        X=np.empty((len(xset),len(yset)))
+        Y=np.empty((len(xset),len(yset)))
+        Z=np.empty((len(xset),len(yset)))
+        for i in range(len(xset)):
+            for j in range(len(yset)):
+                # X[i][j]=x[i*len(yset)+j]
+                # Y[i][j]=y[i*len(yset)+j]
+                X[i][j]=xyzSorted[i*len(yset)+j][0]
+                Y[i][j]=xyzSorted[i*len(yset)+j][1]
+                Z[i][j]=xyzSorted[i*len(yset)+j][2]
+
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        # 具体函数方法可用 help(function) 查看，如：help(ax.plot_surface)
+        ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap='rainbow')
+        plt.show()
+
+
+
+    # ----------------------------------------------------------------------
+    def outFile(self, file, content):
+        """输出内容到文件"""
+        print >> file, str(datetime.now()) + "\t" + content
+
 
 if __name__ == '__main__':
     # 以下内容是一段回测脚本的演示，用户可以根据自己的需求修改
