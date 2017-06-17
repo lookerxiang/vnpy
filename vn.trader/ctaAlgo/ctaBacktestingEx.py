@@ -349,11 +349,69 @@ class BacktestingEngineEx(BacktestingEngine):
         self.output(u'最大连续回撤时间：\t%s' % d['maxContinueDrawdownTime'])
 
         # 输出到文件
+        self.output(u'输出优化结果到文件中：')
+        path = os.path.abspath(os.path.join(os.getcwd(), "..")) + '/strategyAnalysis/' + '/'
+        if not os.path.exists(path):
+            dir = os.makedirs(path)
+        # fileName =os.path.join(path,str(self.strategy.className)+' '+str(self.symbol)+' '+str(self.startDate)+"-"+str(self.endDate)+'.txt')
+        # f = open(fileName,'w')
+        # for result in resultList:
+        #     self.outFile(f,u'%s: %s' % (result[0], result[1]))
+        # f.close()
+        now = datetime.now()
+        nowstr = str(now.year) + '-' + str(now.month) + '-' + str(now.day) + '-' + str(now.hour) + '-' + str(
+            now.minute) + '-' + str(now.second)
+        fileName = os.path.join(path, str(self.strategy.className) + ' ' + str(self.symbol) + ' ' + str(
+            self.startDate) + "-" + str(self.endDate) + ' ' + nowstr + '.xls')
+        book = Workbook()  # 将内置函数Workbook赋值给book
+        sheet = book.add_sheet(u'优化结果')  # 给新建excel添加sheet
 
+
+        # 标题栏
+
+
+        nameList = self.strategy.paramList
+        i = 0
+        for key in nameList:
+            sheet.write(0, i, key)
+            sheet.write(1, i, self.strategy.__dict__[key])
+            i += 1
+        lenParm=len(nameList)
+        sheet.write(0, lenParm, u'第一笔交易')
+        sheet.write(0, lenParm+1, u'最后一笔交易')
+        sheet.write(0, lenParm+2, u'总交易次数')
+        sheet.write(0, lenParm+3, u'总盈亏')
+        sheet.write(0, lenParm+4, u'最大回撤')
+        sheet.write(0, lenParm+5, u'平均每笔盈利')
+        sheet.write(0, lenParm+6, u'平均每笔滑点')
+        sheet.write(0, lenParm+7, u'平均每笔佣金')
+        sheet.write(0, lenParm+8, u'胜率')
+        sheet.write(0, lenParm+9, u'盈利交易平均值')
+        sheet.write(0, lenParm+10, u'盈亏比')
+        sheet.write(0, lenParm+11, u'最大连续回撤次数')
+        sheet.write(0, lenParm+12, u'最大连续回撤时间')
+
+        sheet.write(1, lenParm, d['timeList'][0])
+        sheet.write(1, lenParm + 1, d['timeList'][-1])
+        sheet.write(1, lenParm + 2, formatNumber(d['totalResult']))
+        sheet.write(1, lenParm + 3, formatNumber(d['capital']))
+        sheet.write(1, lenParm + 4, formatNumber(min(d['drawdownList'])))
+        sheet.write(1, lenParm + 5, formatNumber(d['capital'] / d['totalResult']))
+        sheet.write(1, lenParm + 6, formatNumber(d['totalSlippage'] / d['totalResult']))
+        sheet.write(1, lenParm + 7, formatNumber(d['totalCommission'] / d['totalResult']))
+        sheet.write(1, lenParm + 8, formatNumber(d['winningRate']))
+        sheet.write(1, lenParm + 9, formatNumber(d['averageWinning']))
+        sheet.write(1, lenParm + 10, formatNumber(d['profitLossRatio']))
+        sheet.write(1, lenParm + 11, str(d['maxContinueDrawdownNumber']))
+        sheet.write(1, lenParm + 12, str(d['maxContinueDrawdownTime']))
+
+        book.save(fileName)  # 保存excel到新excel
+
+        self.output(u'输出优化结果到文件中完成！！！')
 
         # 绘图
         # import matplotlib
-        matplotlib.use('TkAgg')
+        # matplotlib.use('TkAgg')
         # import matplotlib.pyplot as plt
 
         fig = plt.figure(1)
@@ -499,7 +557,7 @@ class BacktestingEngineEx(BacktestingEngine):
         self.output(u'输出优化结果到文件中完成！！！')
 
         return resultList
-    # 绘制三维曲面图
+    # 绘制三维曲面图----------------------------------------------------------------------------------------------------
     def runSurface(self, parm1,parm2, resultList):
         """画三维曲面图"""
         x=[]
