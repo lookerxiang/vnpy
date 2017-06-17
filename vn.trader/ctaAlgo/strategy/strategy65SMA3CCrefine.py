@@ -1,7 +1,7 @@
 # encoding: UTF-8
 
 """
-双均线移动止损策略，适合用在螺纹钢日线上
+双均线策略，固定止损+移动止损
 
 """
 import datetime as dt
@@ -111,12 +111,12 @@ class Strategy65SMA3CCRefine(CtaTemplate):
             self.updateData(bar)
         self.endHistoryData()
 
-        print 'highArray  =>', self.highArray
-        print 'lowArray   =>', self.lowArray
-        print 'closeArray =>', self.closeArray
-        print 'shortArray =>', self.shortArray
-        print 'longArray  =>', self.longArray
-        print 'Ravi       =>', self.Ravi
+        # print 'highArray  =>', self.highArray
+        # print 'lowArray   =>', self.lowArray
+        # print 'closeArray =>', self.closeArray
+        # print 'shortArray =>', self.shortArray
+        # print 'longArray  =>', self.longArray
+        # print 'Ravi       =>', self.Ravi
 
         self.putEvent()
 
@@ -187,7 +187,7 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         lastKLines = self.getLastKlines(self.bufferSize, self.klinePeriod, from_datetime=bar.datetime)
         if len(lastKLines) == 0:
             return
-        print 'Current bar datetime:', bar.datetime, '<=> Last kline datetime:', lastKLines[-1].datetime
+        # print 'Current bar datetime:', bar.datetime, '<=> Last kline datetime:', lastKLines[-1].datetime
 
         # 将历史K线转换为计算所需数据数组
         self.highArray[-len(lastKLines):] = [b.high for b in lastKLines]
@@ -309,15 +309,15 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     engine.initStrategy(Strategy65SMA3CCRefine,
-                        dict(vtSymbol='RB0000', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=3.1,
+                        dict(vtSymbol='RB0000TEST', inBacktesting=True, shortPeriod=6, longPeriod=55, trailingStop=3.1,
                              stopLoss=0.8, RaviLimit=0.5, klinePeriod=dre.ctaKLine.PERIOD_30MIN))  # 初始化策略
 
     # 设置引擎的回测模式为K线
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20090327', initDays=10)
-    engine.setEndDate('20131120')
+    engine.setStartDate('20180101', initDays=10)
+    engine.setEndDate('20280101')
 
     # 设置产品相关参数
     engine.setSlippage(1.0)  # 股指1跳
