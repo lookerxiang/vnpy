@@ -13,7 +13,10 @@ import matplotlib
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from operator import itemgetter, attrgetter
-
+import os
+import xlrd
+from xlwt import Workbook
+# import xlwt
 
 ########################################################################
 class BacktestingEngineEx(BacktestingEngine):
@@ -345,6 +348,7 @@ class BacktestingEngineEx(BacktestingEngine):
         self.output(u'最大连续回撤次数：\t%s' % d['maxContinueDrawdownNumber'])
         self.output(u'最大连续回撤时间：\t%s' % d['maxContinueDrawdownTime'])
 
+        # 输出到文件
 
 
         # 绘图
@@ -460,15 +464,41 @@ class BacktestingEngineEx(BacktestingEngine):
 
         #输出优化结果到文件中
         self.output(u'输出优化结果到文件中：')
-        fileName = str(self.strategy.className)+' '+str(self.symbol)+' '+str(self.startDate)+"-"+str(self.endDate)+'.txt'
-        f = open(fileName,'w')
+        path =  os.path.abspath(os.path.join(os.getcwd(), "..")) + '/strategyAnalysis/' +  '/'
+        if not os.path.exists(path):
+            dir=os.makedirs(path)
+        # fileName =os.path.join(path,str(self.strategy.className)+' '+str(self.symbol)+' '+str(self.startDate)+"-"+str(self.endDate)+'.txt')
+        # f = open(fileName,'w')
+        # for result in resultList:
+        #     self.outFile(f,u'%s: %s' % (result[0], result[1]))
+        # f.close()
+        now = datetime.now()
+        nowstr=str(now.year)+ '-'+str(now.month)+ '-'+str(now.day)+'-'+str(now.hour)+ '-'+str(now.minute)+ '-'+str(now.second)
+        fileName =os.path.join(path,str(self.strategy.className)+' '+str(self.symbol)+' '+str(self.startDate)+"-"+str(self.endDate)+' Optimization'+' '+nowstr+'.xls')
+        book = Workbook()  # 将内置函数Workbook赋值给book
+        sheet=book.add_sheet(u'优化结果')  # 给新建excel添加sheet
+        #标题栏
+        nameList = optimizationSetting.paramDict.keys()
+        i=0
+        for name in eval(resultList[0][0]).keys():
+            sheet.write(0,i,name)
+            i+=1
+        sheet.write(0, len(nameList), targetName)
+
+        j=0
         for result in resultList:
-            self.outFile(f,u'%s: %s' % (result[0], result[1]))
-        f.close()
+            i = 0
+            j+=1
+            for value in eval(result[0]).values():
+                sheet.write(j, i, value)
+                i+=1
+            sheet.write(j, i, result[1])
+
+        book.save(fileName)  # 保存excel到新excel
+
         self.output(u'输出优化结果到文件中完成！！！')
 
         return resultList
-
     # 绘制三维曲面图
     def runSurface(self, parm1,parm2, resultList):
         """画三维曲面图"""
@@ -505,6 +535,9 @@ class BacktestingEngineEx(BacktestingEngine):
         ax = Axes3D(fig)
         # 具体函数方法可用 help(function) 查看，如：help(ax.plot_surface)
         ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap='rainbow')
+        ax.set_zlabel('capital')  # 坐标轴
+        ax.set_ylabel(parm2)
+        ax.set_xlabel(parm1)
         plt.show()
 
 
