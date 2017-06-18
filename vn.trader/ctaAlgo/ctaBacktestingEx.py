@@ -374,7 +374,8 @@ class BacktestingEngineEx(BacktestingEngine):
         i = 0
         for key in nameList:
             sheet.write(0, i, key)
-            sheet.write(1, i, self.strategy.__dict__[key])
+            if key in self.strategy.__dict__:
+                sheet.write(1, i, self.strategy.__dict__[key])
             i += 1
         lenParm=len(nameList)
         sheet.write(0, lenParm, u'第一笔交易')
