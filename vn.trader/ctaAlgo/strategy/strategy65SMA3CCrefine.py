@@ -17,7 +17,7 @@ from ctaAlgo.ctaTemplateEx import (CtaTemplate, STRATEGY_TRADE_DB_NAME)
 ########################################################################
 class Strategy65SMA3CCRefine(CtaTemplate):
     """结合ATR和RSI指标的一个分钟线交易策略"""
-    className = 'StrategySingleSMA'
+    className = 'Strategy65SMA3CCRefine'
     author = u'向律楷'
 
     # 策略参数

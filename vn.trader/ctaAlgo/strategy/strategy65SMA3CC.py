@@ -18,9 +18,9 @@ from ctaAlgo.ctaTemplateEx import CtaTemplate
 
 
 ########################################################################
-class StrategyDoubleSMA(CtaTemplate):
+class strategy65SMA3CC(CtaTemplate):
     """结合ATR和RSI指标的一个分钟线交易策略"""
-    className = 'StrategySingleSMA'
+    className = 'strategy65SMA3CC'
     author = u'向律楷'
 
     # 策略参数
@@ -85,7 +85,7 @@ class StrategyDoubleSMA(CtaTemplate):
     #----------------------------------------------------------------------
     def __init__(self, ctaEngine, setting):
         """Constructor"""
-        super(StrategyDoubleSMA, self).__init__(ctaEngine, setting)
+        super(strategy65SMA3CC, self).__init__(ctaEngine, setting)
 
         # 注意策略类中的可变对象属性（通常是list和dict等），在策略初始化时需要重新创建，
         # 否则会出现多个策略实例之间数据共享的情况，有可能导致潜在的策略逻辑错误风险，
@@ -330,8 +330,8 @@ if __name__ == '__main__':
 
     # 在引擎中创建策略对象
     # d = {'atrLength': 11}
-    #engine.initStrategy(StrategyDoubleSMA, {})  #初始化策略
-    engine.initStrategy(StrategyDoubleSMA, dict(
+    #engine.initStrategy(strategy65SMA3CC, {})  #初始化策略
+    engine.initStrategy(strategy65SMA3CC, dict(
         inBacktesting=True, backtestingStartDatetime=dt.datetime(2009, 3, 27) + dt.timedelta(20)))  # 初始化策略
     engine.strategy.vtSymbol = 'RB0000'
     engine.strategy.isBacktesting = True
