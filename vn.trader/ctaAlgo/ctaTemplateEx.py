@@ -90,12 +90,15 @@ class CtaTemplate(CtaTemplateOrginal):
                     save_longTody = posBuffer.longToday
                     posBuffer.longToday = 0
                     # 在无多头今仓的条件下发单，保证优先平昨
-                    vtOrderID_yd = self.sendOrder(CTAORDER_SELL, price, volume_yd, stop)
+                    id_list = []
+                    if volume_yd > 0:
+                        id_list.append(self.sendOrder(CTAORDER_SELL, price, volume_yd, stop))
                     # 还原多头今仓，发送剩下的平今单
                     posBuffer.longToday = save_longTody
                     volume_td = volume - volume_yd
-                    vtOrderID_td = self.sendOrder(CTAORDER_SELL, price, volume_td, stop)
-                    return (vtOrderID_yd, vtOrderID_td)
+                    if volume_td > 0:
+                        id_list.append(self.sendOrder(CTAORDER_SELL, price, volume_td, stop))
+                    return tuple(id_list)
 
         vtOrderID = self.sendOrder(CTAORDER_SELL, price, volume, stop)
         return (vtOrderID,)
@@ -118,12 +121,15 @@ class CtaTemplate(CtaTemplateOrginal):
                     save_shortToday = posBuffer.shortToday
                     posBuffer.shortToday = 0
                     # 在无空头今仓的条件下发单，保证优先平昨
-                    vtOrderID_yd = self.sendOrder(CTAORDER_COVER, price, volume_yd, stop)
+                    id_list = []
+                    if volume_yd > 0:
+                        id_list.append(self.sendOrder(CTAORDER_COVER, price, volume_yd, stop))
                     # 还原空头今仓，发送剩下的平今单
                     posBuffer.shortToday = save_shortToday
                     volume_td = volume - volume_yd
-                    vtOrderID_td = self.sendOrder(CTAORDER_COVER, price, volume_td, stop)
-                    return (vtOrderID_yd, vtOrderID_td)
+                    if volume_td > 0:
+                        id_list.append(self.sendOrder(CTAORDER_COVER, price, volume_td, stop))
+                    return tuple(id_list)
 
         vtOrderID = self.sendOrder(CTAORDER_COVER, price, volume, stop)
         return (vtOrderID,)
