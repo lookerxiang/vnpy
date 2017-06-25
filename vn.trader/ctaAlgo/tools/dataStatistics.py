@@ -33,7 +33,7 @@ class Statistics(object):
     # ----------------------------------------------------------------------
     def __init__(self):
         """Constructor"""
-        self.dbClient = None        # 数据库客户端
+        dbClient = None        # 数据库客户端
         self.dbCursor = None        # 数据库指针
         self.mode = self.BAR_MODE   # 回测模式，默认为K线
         # self.dataStartDate = None       # 回测数据开始日期，datetime对象
@@ -77,7 +77,10 @@ class Statistics(object):
 
     # ----------------------------------------------------------------------
     def trueRangeStatistic(self, data):
-        """真实波幅统计"""
+        """真实波幅统计
+
+
+        """
         self.output(u'开始统计真实波幅TR')
         highArray = np.zeros(len(data))  # K线最高价的数组
         lowArray = np.zeros(len(data))  # K线最低价的数组
@@ -223,6 +226,57 @@ class Statistics(object):
 
         self.output(u'统计真实波幅TR完成')
 
+    # ------------------------------------------------------------------------------------------------------------------
+    def ravi(self, data,shortPeriod,longPeriod):
+        """
+        Parameters
+        ----------
+        data: 输入数据
+
+        Returns
+        -------
+        """
+        self.output(u'开始统计真实波幅TR')
+        highArray = np.zeros(len(data))  # K线最高价的数组
+        lowArray = np.zeros(len(data))  # K线最低价的数组
+        closeArray = np.zeros(len(data))  # K线收盘价的数组
+        timeArray = []  # 时间
+        i = 0
+        for bar in data:
+            i += 1
+            highArray[i - 1] = bar.high
+            lowArray[i - 1] = bar.low
+            closeArray[i - 1] = bar.close
+            timeArray.append(bar.datetime)
+
+        shortMa = talib.MA(closeArray, shortPeriod)  # 计算EMA
+        longMa = talib.MA(closeArray, longPeriod)  # 计算EMA
+        ravi = abs((shortMa - longMa) / longMa * 100)  # 运动辨识指数，用于过震荡时的虚假信号
+        aravi=talib.MA(ravi,8)
+
+        sigma = talib.STDDEV(closeArray, timeperiod=8, nbdev=1)
+
+        # 绘图--------------------------------------------
+        fig1 = plt.figure(u'历史k线及动辨识指数')
+        originalData = plt.subplot(3, 1, 1)
+        originalData.set_ylabel("originalData")
+        # originalData.plot(timeArray, highArray)
+        # originalData.plot(timeArray, lowArray)
+        originalData.plot(timeArray, closeArray)
+
+        TRPlot = plt.subplot(3, 1, 2)
+        TRPlot.set_ylabel("ravi")
+        TRPlot.plot(timeArray, ravi, label="ravi")
+        TRPlot.plot(timeArray, aravi, label="aravi")
+
+        TRPlot = plt.subplot(3, 1, 3)
+        TRPlot.set_ylabel(" Standard Deviation")
+        TRPlot.plot(timeArray, sigma, label="sigma")
+
+
+
+        plt.show()
+
     # ----------------------------------------------------------------------
     def output(self, content):
         """输出内容"""
@@ -250,5 +304,7 @@ class Statistics(object):
 
 if __name__ == '__main__':
     test=Statistics()
-    test.loadHistoryData(MINUTE_DB_NAME,'RB0000','20151130','20170504')
-    test.trueRangeStatistic(test.data)
+    test.loadHistoryData(DAILY_DB_NAME,'RB0000','20160819','20170819')
+    # test.trueRangeStatistic(test.data)
+    test.ravi(test.data,8,16)
+
