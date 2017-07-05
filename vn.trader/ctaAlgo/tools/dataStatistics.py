@@ -252,9 +252,9 @@ class Statistics(object):
         shortMa = talib.MA(closeArray, shortPeriod)  # 计算EMA
         longMa = talib.MA(closeArray, longPeriod)  # 计算EMA
         ravi = abs((shortMa - longMa) / longMa * 100)  # 运动辨识指数，用于过震荡时的虚假信号
-        aravi=talib.MA(ravi,8)
+        aravi=np.nan_to_num(talib.MA(ravi,8))
 
-        sigma = talib.STDDEV(closeArray, timeperiod=8, nbdev=1)
+        sigma = np.nan_to_num(talib.STDDEV(closeArray, timeperiod=8, nbdev=1))
 
         # 绘图--------------------------------------------
         fig1 = plt.figure(u'历史k线及动辨识指数')
@@ -304,7 +304,7 @@ class Statistics(object):
 
 if __name__ == '__main__':
     test=Statistics()
-    test.loadHistoryData(DAILY_DB_NAME,'RB0000','20160819','20170819')
+    test.loadHistoryData(DAILY_DB_NAME,'RB0000','20151209','20170819')
     # test.trueRangeStatistic(test.data)
     test.ravi(test.data,8,16)
 
