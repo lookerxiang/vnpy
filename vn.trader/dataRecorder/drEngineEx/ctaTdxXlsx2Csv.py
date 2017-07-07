@@ -141,7 +141,7 @@ def loadMcCsv(fileName, dbName, symbol):
     print u'开始读取CSV文件%s中的数据插入到%s的%s中' % (fileName, dbName, symbol)
 
     # 锁定集合，并创建索引
-    client = pymongo.MongoClient()
+    client = pymongo.MongoClient(port=27018)
     collection = client[dbName][symbol]
     collection.ensure_index([('datetime', pymongo.ASCENDING)], unique=True)
 
