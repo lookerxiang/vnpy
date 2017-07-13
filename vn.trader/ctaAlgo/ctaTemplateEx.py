@@ -178,9 +178,15 @@ class CtaTemplate(CtaTemplateOrginal):
                          if hasattr(self.ctaEngine, "dbClient") else
                          self.ctaEngine.mainEngine.dbClient)
             col = db_client[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
-            self.backtestingDbCursor = col.find(filter={'datetime': {'$gte': from_datetime}},
+            self.backtestingDbCursor = col.find(filter={'datetime': {'$gt': from_datetime}},
                                                 projection={'_id': False},
                                                 sort=(('datetime', pymongo.ASCENDING),))
+            for prev_kline_data in col.find(filter={'datetime': {'$lte': from_datetime}},
+                                            projection={'_id': False},
+                                            limit=count * 3,  # 取3倍大小是一个经验值，策略用一部分K线初始化后可能会需要访问到更前面的K线数据
+                                            sort=(('datetime', pymongo.DESCENDING),)):
+                self.backtestingDbCache.insert(0, drEngineEx.ctaKLine.KLine(None))
+                self.backtestingDbCache[0].__dict__.update(prev_kline_data)
 
         while not self.backtestingDbCache or self.backtestingDbCache[-1].datetime < from_datetime:
             next_kline_data = next(self.backtestingDbCursor)
@@ -189,7 +195,11 @@ class CtaTemplate(CtaTemplateOrginal):
             if len(self.backtestingDbCache) > self.backtestingDbCacheSize:
                 del self.backtestingDbCache[0]
 
-        return self.backtestingDbCache[max(0, len(self.backtestingDbCache) - count):]
+        last_one = len(self.backtestingDbCache)
+        while last_one > 0 and self.backtestingDbCache[last_one - 1].datetime > from_datetime:
+            last_one -= 1
+
+        return self.backtestingDbCache[max(0, last_one - count):last_one]
 
         # 以下回测模式历史数据获取方式作废
         # # 非实盘首先尝试从缓存中获取
