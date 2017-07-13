@@ -11,9 +11,7 @@
 onInit、onStart、onTrade有实现代码，重写时需手动调用！
 """
 
-import bisect
 import datetime as dt
-import itertools
 import time
 
 import pymongo
@@ -48,6 +46,7 @@ class CtaTemplate(CtaTemplateOrginal):
                 self.backtestingDbCache = []
                 self.backtestingDbCacheSize = 10000  # TODO 参数化
                 self.backtestingDbCacheReachOldest = False
+                self.backtestingDbCursor = None
 
         # 非回测时初始化邮件模块
         if not self.inBacktesting:
@@ -172,37 +171,58 @@ class CtaTemplate(CtaTemplateOrginal):
             return self.ctaEngine.mainEngine.drEngine.kline_gen.get_last_klines(
                     symbol, count, period, only_completed, from_datetime + dt.timedelta(seconds=30))
 
-        # 非实盘首先尝试从缓存中获取
-        idx = bisect.bisect_left(map(lambda b: b.datetime, self.backtestingDbCache), from_datetime)
-        if (idx != len(self.backtestingDbCache)
-            and self.backtestingDbCache[idx].datetime == from_datetime):
-            if idx + 1 - count < 0 and not self.backtestingDbCacheReachOldest:
-                pass  # 继续从数据库中获取更前面的数据
-            else:
-                return self.backtestingDbCache[max(0, idx + 1 - count):idx + 1]
+        # 回测模式下采用简单的游标步进方式获取数据，提高访问效率
+        # ！！该方法限制了策略访问历史K线的方式，应注意在今后可能会失效
+        if self.backtestingDbCursor == None:
+            db_client = (self.ctaEngine.dbClient
+                         if hasattr(self.ctaEngine, "dbClient") else
+                         self.ctaEngine.mainEngine.dbClient)
+            col = db_client[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
+            self.backtestingDbCursor = col.find(filter={'datetime': {'$gte': from_datetime}},
+                                                projection={'_id': False},
+                                                sort=(('datetime', pymongo.ASCENDING),))
 
-        # 缓存中未找到对应数据则从数据库中获取
-        db_client = (self.ctaEngine.dbClient
-                     if hasattr(self.ctaEngine, "dbClient") else
-                     self.ctaEngine.mainEngine.dbClient)
-        col = db_client[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
-        klines = list(col.find(filter={'datetime': {'$lte': from_datetime}},
-                               projection={'_id': False},
-                               limit=count,
-                               sort=(('datetime', pymongo.DESCENDING),)))
-        klines.reverse()
-        if len(klines) < count:  # 数据库中已无更靠前的数据
-            self.backtestingDbCacheReachOldest = True
-        # 继续预读
-        klinesPreRead = list(col.find(filter={'datetime': {'$gt': from_datetime}},
-                                      projection={'_id': False},
-                                      limit=self.backtestingDbCacheSize - len(klines),
-                                      sort=(('datetime', pymongo.ASCENDING),)))
-        self.backtestingDbCache = []
-        for kline in itertools.chain(klines, klinesPreRead):
+        while not self.backtestingDbCache or self.backtestingDbCache[-1].datetime < from_datetime:
+            next_kline_data = next(self.backtestingDbCursor)
             self.backtestingDbCache.append(drEngineEx.ctaKLine.KLine(None))
-            self.backtestingDbCache[-1].__dict__.update(kline)
-        return self.backtestingDbCache[max(0, len(klines) - count):len(klines)]
+            self.backtestingDbCache[-1].__dict__.update(next_kline_data)
+            if len(self.backtestingDbCache) > self.backtestingDbCacheSize:
+                del self.backtestingDbCache[0]
+
+        return self.backtestingDbCache[max(0, len(self.backtestingDbCache) - count):]
+
+        # 以下回测模式历史数据获取方式作废
+        # # 非实盘首先尝试从缓存中获取
+        # idx = bisect.bisect_left(map(lambda b: b.datetime, self.backtestingDbCache), from_datetime)
+        # if (idx != len(self.backtestingDbCache)
+        #     and self.backtestingDbCache[idx].datetime == from_datetime):
+        #     if idx + 1 - count < 0 and not self.backtestingDbCacheReachOldest:
+        #         pass  # 继续从数据库中获取更前面的数据
+        #     else:
+        #         return self.backtestingDbCache[max(0, idx + 1 - count):idx + 1]
+        #
+        # # 缓存中未找到对应数据则从数据库中获取
+        # db_client = (self.ctaEngine.dbClient
+        #              if hasattr(self.ctaEngine, "dbClient") else
+        #              self.ctaEngine.mainEngine.dbClient)
+        # col = db_client[drEngineEx.ctaKLine.KLINE_DB_NAMES[period]][symbol]
+        # klines = list(col.find(filter={'datetime': {'$lte': from_datetime}},
+        #                        projection={'_id': False},
+        #                        limit=count,
+        #                        sort=(('datetime', pymongo.DESCENDING),)))
+        # klines.reverse()
+        # if len(klines) < count:  # 数据库中已无更靠前的数据
+        #     self.backtestingDbCacheReachOldest = True
+        # # 继续预读
+        # klinesPreRead = list(col.find(filter={'datetime': {'$gt': from_datetime}},
+        #                               projection={'_id': False},
+        #                               limit=self.backtestingDbCacheSize - len(klines),
+        #                               sort=(('datetime', pymongo.ASCENDING),)))
+        # self.backtestingDbCache = []
+        # for kline in itertools.chain(klines, klinesPreRead):
+        #     self.backtestingDbCache.append(drEngineEx.ctaKLine.KLine(None))
+        #     self.backtestingDbCache[-1].__dict__.update(kline)
+        # return self.backtestingDbCache[max(0, len(klines) - count):len(klines)]
 
     def registerOnbar(self, periods):
         """注册K线回调
