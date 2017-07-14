@@ -48,7 +48,7 @@ def generate(period,
                     int(gen_end_date[-2:])),
             dt.time.max)
 
-    db_client = pymongo.MongoClient()
+    db_client = pymongo.MongoClient(port=27018)
 
     # 从数据库中抽取历史数据
     history_datas = []
