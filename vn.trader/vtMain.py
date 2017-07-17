@@ -9,6 +9,9 @@ import vtPath
 from vtEngine import MainEngine
 from uiMainWindow import *
 
+import threading
+import autoStartCta
+
 # 文件路径名
 path = os.path.abspath(os.path.dirname(__file__))    
 ICON_FILENAME = 'vnpy.ico'
@@ -47,9 +50,12 @@ def main():
     mainEngine = MainEngine()
     mainWindow = MainWindow(mainEngine, mainEngine.eventEngine)
     mainWindow.showMaximized()
-    
+
+    # 启动自动初始化脚本
+    threading.Timer(20, lambda: autoStartCta.do_everthing(app, mainEngine, mainWindow)).start()
+
     # 在主线程中启动Qt事件循环
     sys.exit(app.exec_())
-    
+
 if __name__ == '__main__':
     main()

@@ -11,6 +11,7 @@ from riskManager.uiRmWidget import RmEngineManager
 class MainWindow(QtGui.QMainWindow):
     """主窗口"""
     signalStatusBar = QtCore.pyqtSignal(type(Event()))
+    signalCta = QtCore.pyqtSignal()
 
     #----------------------------------------------------------------------
     def __init__(self, mainEngine, eventEngine):
@@ -99,6 +100,7 @@ class MainWindow(QtGui.QMainWindow):
         # 算法相关
         algoMenu = menubar.addMenu(u'算法')
         algoMenu.addAction(self.createAction(u'CTA策略', self.openCta))
+        self.signalCta.connect(self.openCta)
         
         # 帮助
         helpMenu = menubar.addMenu(u'帮助')
