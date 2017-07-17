@@ -147,6 +147,9 @@ class CtaStrategyManager(QtGui.QGroupBox):
 class CtaEngineManager(QtGui.QWidget):
     """CTA引擎管理组件"""
     signal = QtCore.pyqtSignal(type(Event()))
+    signalLoadAll = QtCore.pyqtSignal()
+    signalInitAll = QtCore.pyqtSignal()
+    signalStartAll = QtCore.pyqtSignal()
 
     #----------------------------------------------------------------------
     def __init__(self, ctaEngine, eventEngine, parent=None):
@@ -181,6 +184,10 @@ class CtaEngineManager(QtGui.QWidget):
         startAllButton.clicked.connect(self.startAll)
         stopAllButton.clicked.connect(self.stopAll)
         savePositionButton.clicked.connect(self.ctaEngine.savePosition)
+
+        self.signalLoadAll.connect(self.load)
+        self.signalInitAll.connect(self.initAll)
+        self.signalStartAll.connect(self.startAll)
         
         # 滚动区域，放置所有的CtaStrategyManager
         self.scrollArea = QtGui.QScrollArea()
