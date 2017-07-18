@@ -7,7 +7,7 @@ if __name__ == '__main__':
     id_list = []
 
     # 读取进程一览表
-    output = subprocess.check_output(r'wmic process where (caption like "%python2%") get processid,commandline',
+    output = subprocess.check_output(r'wmic process where (caption like "%python%") get processid,commandline',
                                      universal_newlines=True)
     for line in output.split('\n'):
         line = line.strip()
