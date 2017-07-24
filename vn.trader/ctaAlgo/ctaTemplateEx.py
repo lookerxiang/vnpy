@@ -183,13 +183,16 @@ class CtaTemplate(CtaTemplateOrginal):
                                                 sort=(('datetime', pymongo.ASCENDING),))
             for prev_kline_data in col.find(filter={'datetime': {'$lte': from_datetime}},
                                             projection={'_id': False},
-                                            limit=count * 3,  # 取3倍大小是一个经验值，策略用一部分K线初始化后可能会需要访问到更前面的K线数据
+                                            limit=count * 10,  # ！！取10倍大小可能不够，按策略需求修改，今后考虑更好对策
                                             sort=(('datetime', pymongo.DESCENDING),)):
                 self.backtestingDbCache.insert(0, drEngineEx.ctaKLine.KLine(None))
                 self.backtestingDbCache[0].__dict__.update(prev_kline_data)
 
         while not self.backtestingDbCache or self.backtestingDbCache[-1].datetime < from_datetime:
-            next_kline_data = next(self.backtestingDbCursor)
+            try:
+                next_kline_data = next(self.backtestingDbCursor)
+            except StopIteration:
+                break
             self.backtestingDbCache.append(drEngineEx.ctaKLine.KLine(None))
             self.backtestingDbCache[-1].__dict__.update(next_kline_data)
             if len(self.backtestingDbCache) > self.backtestingDbCacheSize:
@@ -266,6 +269,7 @@ class CtaTemplate(CtaTemplateOrginal):
             self.backtestingDbCache = []
             self.backtestingDbCacheSize = cacheSize
             self.backtestingDbCacheReachOldest = False
+            self.backtestingDbCursor = None
 
     def endHistoryData(self):
         self.isHistoryData = False
