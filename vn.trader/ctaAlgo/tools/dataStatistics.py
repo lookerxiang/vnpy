@@ -277,6 +277,53 @@ class Statistics(object):
 
         plt.show()
 
+    # ------------------------------------------------------------------------------------------------------------------
+    def std(self, data, period):
+        """
+        Parameters
+        ----------
+        data: 输入数据
+        period: 数据窗口
+
+        Returns
+        -------
+        """
+        self.output(u'开始统计真实波幅TR')
+        highArray = np.zeros(len(data))  # K线最高价的数组
+        lowArray = np.zeros(len(data))  # K线最低价的数组
+        closeArray = np.zeros(len(data))  # K线收盘价的数组
+        timeArray = []  # 时间
+        i = 0
+        for bar in data:
+            i += 1
+            highArray[i - 1] = bar.high
+            lowArray[i - 1] = bar.low
+            closeArray[i - 1] = bar.close
+            timeArray.append(bar.datetime)
+
+        slope = np.nan_to_num(talib.LINEARREG_SLOPE(closeArray, timeperiod = period)) #线性回归斜率
+        sigma = np.nan_to_num(talib.STDDEV(closeArray, timeperiod=period, nbdev=1)) #标准差
+
+        # 绘图--------------------------------------------
+        fig1 = plt.figure(u'线性回归斜率及标准差')
+        originalData = plt.subplot(3, 1, 1)
+        originalData.set_ylabel("originalData")
+        # originalData.plot(timeArray, highArray)
+        # originalData.plot(timeArray, lowArray)
+        originalData.plot(timeArray, closeArray)
+
+        TRPlot = plt.subplot(3, 1, 2)
+        TRPlot.set_ylabel("std")
+        TRPlot.plot(timeArray, sigma, label="std")
+        # TRPlot.plot(timeArray, std, label="aravi")
+
+        TRPlot = plt.subplot(3, 1, 3)
+        TRPlot.set_ylabel("slope")
+        TRPlot.plot(timeArray, slope, label="slope")
+        # TRPlot.plot(timeArray, std, label="aravi")
+
+        plt.show()
+
     # ----------------------------------------------------------------------
     def output(self, content):
         """输出内容"""
@@ -304,7 +351,8 @@ class Statistics(object):
 
 if __name__ == '__main__':
     test=Statistics()
-    test.loadHistoryData(DAILY_DB_NAME,'RB0000','20151209','20170819')
-    # test.trueRangeStatistic(test.data)
-    test.ravi(test.data,8,16)
+    test.loadHistoryData(DAILY_DB_NAME,'RB0000','20130222','20170722')
+    test.trueRangeStatistic(test.data)
+    # test.ravi(test.data,8,16)
+    # test.std(test.data,20)
 
