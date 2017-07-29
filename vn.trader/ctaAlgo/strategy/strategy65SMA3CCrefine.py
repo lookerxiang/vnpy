@@ -63,6 +63,8 @@ class Strategy65SMA3CCRefine(CtaTemplate):
 
     isBacktesting = False
 
+    lastKlineDatetime = None
+
     # 参数列表，保存了参数的名称
     paramList = ['name',
                  'className',
@@ -188,6 +190,12 @@ class Strategy65SMA3CCRefine(CtaTemplate):
         if len(lastKLines) == 0:
             return
         # print 'Current bar datetime:', bar.datetime, '<=> Last kline datetime:', lastKLines[-1].datetime
+
+        # 验证是否是已经参与计算过的K线
+        if self.lastKlineDatetime == bar.datetime:
+            print 'Skip bar datetime:', bar.datetime
+            return
+        self.lastKlineDatetime = bar.datetime
 
         # 将历史K线转换为计算所需数据数组
         self.highArray[-len(lastKLines):] = [b.high for b in lastKLines]

@@ -41,16 +41,16 @@ MINUTES_OF_PERIOD = (
 # 数据库名
 TICK_DB_NAME = 'VnTrader_Tick_Db'
 KLINE_DB_NAMES = {
-    PERIOD_1MIN: 'VnTrader_1Min_Db',
-    PERIOD_2MIN: 'VnTrader_2Min_Db',
-    PERIOD_3MIN: 'VnTrader_3Min_Db',
-    PERIOD_5MIN: 'VnTrader_5Min_Db',
-    PERIOD_15MIN: 'VnTrader_15Min_Db',
-    PERIOD_30MIN: 'VnTrader_30Min_Db',
-    PERIOD_60MIN: 'VnTrader_60Min_Db',
+    PERIOD_1MIN  : 'VnTrader_1Min_Db',
+    PERIOD_2MIN  : 'VnTrader_2Min_Db',
+    PERIOD_3MIN  : 'VnTrader_3Min_Db',
+    PERIOD_5MIN  : 'VnTrader_5Min_Db',
+    PERIOD_15MIN : 'VnTrader_15Min_Db',
+    PERIOD_30MIN : 'VnTrader_30Min_Db',
+    PERIOD_60MIN : 'VnTrader_60Min_Db',
     PERIOD_120MIN: 'VnTrader_120Min_Db',
     PERIOD_240MIN: 'VnTrader_240Min_Db',
-    PERIOD_1DAY: 'VnTrader_Daily_Db',
+    PERIOD_1DAY  : 'VnTrader_Daily_Db',
 }
 
 # 初始化时预读K线的数目
@@ -81,7 +81,7 @@ class KLineGenerator(object):
         self.datetime_guard = dt.datetime.now() if ignore_past else dt.datetime.min
 
         # 存放各合约最后一个tick中的当日总成交量信息，用于计算差值得出每个tick所包含的成交量
-        self.last_daily_volumes = {}
+        # self.last_daily_volumes = {}
 
     def update(self, tick, active_dict):
         """实时更新K线值
@@ -98,9 +98,9 @@ class KLineGenerator(object):
         if tick.datetime >= self.datetime_guard and ctaTimeline.is_valid_tick(tick):
             # 计算tick的交易量
             # TODO 该算法会导致程序启动后第一个tick、交易日第一个tick的交易量被忽略
-            last_volume = self.last_daily_volumes.get(tick.symbol, tick.volume)
-            tick.lastVolume = max(tick.volume - last_volume, 0)  # 跨交易日的时候成交量大小会反转，导致出现负值
-            self.last_daily_volumes[tick.symbol] = tick.volume
+            # last_volume = self.last_daily_volumes.get(tick.symbol, tick.volume)
+            # tick.lastVolume = max(tick.volume - last_volume, 0)  # 跨交易日的时候成交量大小会反转，导致出现负值
+            # self.last_daily_volumes[tick.symbol] = tick.volume
 
             # 将tick记录到数据库中
             if self.recording_tick:
@@ -194,7 +194,7 @@ class KLine(object):
         self.low = min(self.low, tick.lastPrice)
 
         # 更新成交量
-        self.volume += tick.lastVolume
+        self.volume = max(self.volume, tick.volume)
 
 
 class KLineGenImpl(object):

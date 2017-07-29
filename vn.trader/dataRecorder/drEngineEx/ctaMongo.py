@@ -7,12 +7,16 @@ import pymongo
 
 from ctaAlgo.ctaBase import CtaBarData
 from dataRecorder.drBase import DrTickData
+from vtFunction import loadMongoSetting
 
 # 数据库写入进程
 _db_write_proc = None
 
 # 数据库写入进程的任务队列
 _db_write_task_queue = None
+
+# 数据库接口信息
+_db_host, _db_port, _ = loadMongoSetting()
 
 # 数据库写入进程停止符
 STOP_CTAMONGO_QUEUE = ('STOP_CTAMONGO_QUEUE', None)
@@ -45,7 +49,7 @@ def _post(*task):
 
 def _make_db_conn():
     """生成新的数据库连接"""
-    return pymongo.MongoClient()
+    return pymongo.MongoClient(host=_db_host, port=_db_port)
 
 
 def _do_db_write_task(queue):
