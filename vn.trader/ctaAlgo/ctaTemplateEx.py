@@ -168,8 +168,16 @@ class CtaTemplate(CtaTemplateOrginal):
 
         # 实盘使用K线生成器获取
         if not self.inBacktesting and not self.isHistoryData:
+            if period < drEngineEx.ctaKLine.PERIOD_1DAY:
+                # 日线以下的K线，from_datetime直接使用原值（需加上30秒以包含该时间处的K线）
+                from_datetime += dt.timedelta(seconds=30)
+            elif period == drEngineEx.ctaKLine.PERIOD_1DAY:
+                # 日线需要向前修正15小时，保证收盘之前时间落在前日，夜盘开始后时间落在当日
+                from_datetime -= dt.timedelta(hours=15)
+            else:
+                raise AssertionError('K线周期不存在。')
             return self.ctaEngine.mainEngine.drEngine.kline_gen.get_last_klines(
-                    symbol, count, period, only_completed, from_datetime + dt.timedelta(seconds=30))
+                    symbol, count, period, only_completed, from_datetime)
 
         # 回测模式下采用简单的游标步进方式获取数据，提高访问效率
         # ！！该方法限制了策略访问历史K线的方式，应注意在今后可能会失效
@@ -183,13 +191,16 @@ class CtaTemplate(CtaTemplateOrginal):
                                                 sort=(('datetime', pymongo.ASCENDING),))
             for prev_kline_data in col.find(filter={'datetime': {'$lte': from_datetime}},
                                             projection={'_id': False},
-                                            limit=count * 3,  # 取3倍大小是一个经验值，策略用一部分K线初始化后可能会需要访问到更前面的K线数据
+                                            limit=count * 10,  # ！！取10倍大小可能不够，按策略需求修改，今后考虑更好对策
                                             sort=(('datetime', pymongo.DESCENDING),)):
                 self.backtestingDbCache.insert(0, drEngineEx.ctaKLine.KLine(None))
                 self.backtestingDbCache[0].__dict__.update(prev_kline_data)
 
         while not self.backtestingDbCache or self.backtestingDbCache[-1].datetime < from_datetime:
-            next_kline_data = next(self.backtestingDbCursor)
+            try:
+                next_kline_data = next(self.backtestingDbCursor)
+            except StopIteration:
+                break
             self.backtestingDbCache.append(drEngineEx.ctaKLine.KLine(None))
             self.backtestingDbCache[-1].__dict__.update(next_kline_data)
             if len(self.backtestingDbCache) > self.backtestingDbCacheSize:
@@ -266,6 +277,7 @@ class CtaTemplate(CtaTemplateOrginal):
             self.backtestingDbCache = []
             self.backtestingDbCacheSize = cacheSize
             self.backtestingDbCacheReachOldest = False
+            self.backtestingDbCursor = None
 
     def endHistoryData(self):
         self.isHistoryData = False
