@@ -1,7 +1,6 @@
 {
     "recording_tick": false,
     "recording_kline_periods": [
-        0,
-        3
+        9
     ]
 }
