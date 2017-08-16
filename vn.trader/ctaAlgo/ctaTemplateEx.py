@@ -168,16 +168,8 @@ class CtaTemplate(CtaTemplateOrginal):
 
         # 实盘使用K线生成器获取
         if not self.inBacktesting and not self.isHistoryData:
-            if period < drEngineEx.ctaKLine.PERIOD_1DAY:
-                # 日线以下的K线，from_datetime直接使用原值（需加上30秒以包含该时间处的K线）
-                from_datetime += dt.timedelta(seconds=30)
-            elif period == drEngineEx.ctaKLine.PERIOD_1DAY:
-                # 日线需要向前修正15小时，保证收盘之前时间落在前日，夜盘开始后时间落在当日
-                from_datetime -= dt.timedelta(hours=15)
-            else:
-                raise AssertionError('K线周期不存在。')
             return self.ctaEngine.mainEngine.drEngine.kline_gen.get_last_klines(
-                    symbol, count, period, only_completed, from_datetime)
+                    symbol, count, period, only_completed, from_datetime + dt.timedelta(seconds=30))
 
         # 回测模式下采用简单的游标步进方式获取数据，提高访问效率
         # ！！该方法限制了策略访问历史K线的方式，应注意在今后可能会失效
